@@ -1,0 +1,6 @@
+# Raw business data must never be published here.
+dashboard.html
+*.csv
+*.xlsx
+*.artifact.json
+data/
