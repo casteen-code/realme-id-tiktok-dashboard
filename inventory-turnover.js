@@ -6,7 +6,7 @@
     { key: 'shop1', label: '1店' }, { key: 'shop2', label: '2店' }, { key: 'shop3', label: '3店' },
     { key: 'shop4', label: '4店' }, { key: 'shop5', label: '5店' }, { key: 'tiktok', label: 'TikTok' }
   ];
-  const APP_VERSION = 'v3.4.0';
+  const APP_VERSION = 'v3.4.1';
   const SLOT = {
     mks: { label: '马卡萨仓库存', type: 'stock', warehouse: 'mks' },
     pnk: { label: '坤甸仓库存', type: 'stock', warehouse: 'pnk' },
@@ -190,6 +190,12 @@
   function emptyStoreSales() { return Object.fromEntries(STORE_COLUMNS.map(x => [x.key, 0])); }
   function storeSales(row, store) { return row.byStore ? row.byStore[store] || 0 : null; }
   function matchStatus(row) { return row.unmatched ? ['待确认', 'none'] : ['已匹配', 'good']; }
+  function scopeDescription(scope) {
+    if (scope === 'bali') return '巴厘岛仓库存 + 1店、3店、TikTok 销量';
+    if (scope === 'pnk') return '坤甸仓库存 + 4店销量';
+    if (scope === 'mks') return '马卡萨仓库存 + 2店、5店销量';
+    return '三仓库存合计 + 1–5店、TikTok 销量合计';
+  }
   function stocksFromInputs() { const out = []; for (const slot of ['mks','pnk','bali']) { const s = profile(slot), m = s.mapping; for (const r of s.records) { const raw = value(r, m.sku); if (!raw || isSummary(raw)) continue; const initial = parseSKU(raw), saved = app.rules.stockOverrides?.[initial.rawKey]; out.push({ sku: saved ? parseSKU(raw, {}, saved) : initial, warehouse: slot, qty: Math.max(0, num(value(r, m.qty))), source: SLOT[slot].label }); } } return out; }
   function salesFromInputs() {
     const out = [], t = profile('tiktok'); if (t) for (const r of t.records) { const raw = value(r, t.mapping.model), qty = num(value(r, t.mapping.qty)); if (!raw || isSummary(raw) || qty <= 0) continue; out.push({ sku: parseSKU(raw, { model: raw, memory: value(r, t.mapping.memory), color: value(r, t.mapping.color) }), warehouse: 'bali', store: 'tiktok', qty, source: 'TikTok' }); }
@@ -224,7 +230,7 @@
   function renderReport() {
     if (!app.result) return; if (app.historySnapshot) return renderHistorical(app.historySnapshot); const { stocks, sales, issues, stockIssues } = app.result; const scopedStocks = stocks.filter(x => app.scope === 'all' || x.warehouse === app.scope), scopedSales = sales.filter(x => app.scope === 'all' || x.warehouse === app.scope); const stock = scopedStocks.reduce((a,x)=>a+x.qty,0), sold = scopedSales.reduce((a,x)=>a+x.qty,0), rows = sorted(groupRows(stocks, sales, app.view, app.scope));
     $('metrics').innerHTML = `<div class="metric"><small>可用库存</small><div class="n">${stock.toLocaleString()}</div><small>${app.scope === 'all' ? '三个仓库合计' : WAREHOUSES[app.scope]}</small></div><div class="metric"><small>上周销量</small><div class="n">${sold.toLocaleString()}</div><small>以已确认来源为准</small></div><div class="metric"><small>整体周转</small><div class="n">${sold ? `${(stock / (sold / 7)).toFixed(1)} 天` : '—'}</div><small>库存 ÷（周销量 ÷ 7）</small></div><div class="metric"><small>库存识别异常</small><div class="n">${stockIssues.length}</div><small>需补全型号、内存或颜色</small></div><div class="metric"><small>销售待确认 SKU</small><div class="n">${issues.length}</div><small>不会自动强行匹配</small></div>`;
-    $('reportHint').textContent = `${app.scope === 'all' ? '全部仓库' : WAREHOUSES[app.scope]} · ${app.view === 'model' ? '型号已合并内存、颜色' : '完整 SKU 保留内存、颜色'} · 分店销量合计为周销量 · ${rows.length} 条记录`;
+    $('reportHint').textContent = `${scopeDescription(app.scope)} · ${app.view === 'model' ? '型号已合并内存、颜色' : '完整 SKU 保留内存、颜色'} · 分店销量合计为周销量 · ${rows.length} 条记录`;
     $('thead').innerHTML = `<tr><th>${app.view === 'model' ? '型号' : '型号 / SKU'}</th><th>可用库存</th>${STORE_COLUMNS.map(x => `<th>${x.label}</th>`).join('')}<th>周销量</th><th>日均销量</th><th>周转天数</th><th>匹配状态</th></tr>`;
     $('tbody').innerHTML = rows.length ? rows.map(r => { const [label, cls] = matchStatus(r); return `<tr><td><span class="name">${esc(r.name)}</span>${app.view === 'sku' ? `<span class="detail">${esc([r.memory, r.color].filter(Boolean).join(' · ') || '未识别规格')}${r.unmatched ? ' · 未对应库存 SKU' : ''}</span>` : ''}</td><td>${r.stock.toLocaleString()}</td>${STORE_COLUMNS.map(x => `<td>${storeSales(r, x.key).toLocaleString()}</td>`).join('')}<td>${r.sales.toLocaleString()}</td><td>${(r.sales / 7).toFixed(2)}</td><td class="name">${r.turnover == null ? '无销量' : `${r.turnover.toFixed(1)} 天`}</td><td><span class="tag ${cls}">${label}</span></td></tr>`; }).join('') : '<tr><td colspan="12" class="empty">当前范围没有记录。</td></tr>';
     renderStockIssues(); renderIssues();
