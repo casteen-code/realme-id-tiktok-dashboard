@@ -1,0 +1,61 @@
+[
+  {
+    "name": "P4x 6/128GB Rally White：WMS 128GB6GB 写法",
+    "stock": "realme P4x 128GB 6GB Rally White",
+    "sales": { "model": "realme P4x", "memory": "6/128GB", "color": "Rally White" },
+    "expected": { "model": "P4x", "memory": "6GB/128GB", "color": "Rally White" }
+  },
+  {
+    "name": "P4 Lite 4/128GB Titan Grey",
+    "stock": "realme P4 Lite 128GB 4GB Titan Grey",
+    "sales": { "model": "realme P4 Lite", "memory": "4/128GB", "color": "Titan Grey" },
+    "expected": { "model": "P4 Lite", "memory": "4GB/128GB", "color": "Titan Gray" }
+  },
+  {
+    "name": "C100i 4/128GB Dusk Gray",
+    "stock": "realme C100i 128GB 4GB Dusk Gray",
+    "sales": { "model": "realme C100i", "memory": "4/128GB", "color": "Dusk Gray" },
+    "expected": { "model": "C100i", "memory": "4GB/128GB", "color": "Dusk Gray" }
+  },
+  {
+    "name": "16 8/256GB Air White",
+    "stock": "realme 16 5G 256GB 8GB Air White",
+    "sales": { "model": "realme 16", "memory": "8/256GB", "color": "Air White" },
+    "expected": { "model": "16", "memory": "8GB/256GB", "color": "Air White" }
+  },
+  {
+    "name": "16 Pro 12/256GB Pebble Grey",
+    "stock": "realme 16 Pro 5G 256GB 12GB Pebble Grey",
+    "sales": { "model": "realme 16 Pro", "memory": "12/256GB", "color": "Pebble Grey" },
+    "expected": { "model": "16 Pro", "memory": "12GB/256GB", "color": "Pebble Gray" }
+  },
+  {
+    "name": "16 Pro+ 12/512GB Master Grey",
+    "stock": "realme 16 Pro+ 5G 512GB 12GB Master Grey",
+    "sales": { "model": "realme 16 Pro+", "memory": "12/512GB", "color": "Master Grey" },
+    "expected": { "model": "16 Pro+", "memory": "12GB/512GB", "color": "Master Gray" }
+  },
+  {
+    "name": "Buds T200 Lite accessory",
+    "stock": "realme Buds T200 Lite RMA2415-A Volt Black UN",
+    "sales": { "model": "realme Buds T200 Lite", "memory": "", "color": "Volt Black" },
+    "expected": { "model": "Buds T200 Lite", "memory": "", "color": "Volt Black" }
+  },
+  {
+    "name": "TechLife Buds accessory",
+    "stock": "realme TechLife Buds RMA2506 White UN",
+    "sales": { "model": "realme TechLife Buds", "memory": "", "color": "White" },
+    "expected": { "model": "TechLife Buds", "memory": "", "color": "White" }
+  },
+  {
+    "name": "Color alias Deepblue Tide",
+    "stock": "realme C100i 128GB 4GB Deepblue Tide",
+    "sales": { "model": "realme C100i", "memory": "4/128GB", "color": "Deepblue Tides" },
+    "expected": { "model": "C100i", "memory": "4GB/128GB", "color": "Deepblue Tides" }
+  },
+  {
+    "name": "Unknown stock code must self-check",
+    "stock": "zp888",
+    "expectProblems": ["未识别型号"]
+  }
+]

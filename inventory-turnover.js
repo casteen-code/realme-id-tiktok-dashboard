@@ -2,6 +2,7 @@
   'use strict';
 
   const WAREHOUSES = { mks: '马卡萨', pnk: '坤甸', bali: '巴厘岛', unassigned: '未分配' };
+  const APP_VERSION = 'v3.3.1';
   const SLOT = {
     mks: { label: '马卡萨仓库存', type: 'stock', warehouse: 'mks' },
     pnk: { label: '坤甸仓库存', type: 'stock', warehouse: 'pnk' },
@@ -9,28 +10,17 @@
     shopee: { label: 'Shopee 分店销量', type: 'shopee' },
     tiktok: { label: 'TikTok Shop 销量', type: 'tiktok' }
   };
-  const DEFAULT_RULES = {
-    modelAliases: {
-      'realmec100i': 'C100i', 'c100i': 'C100i', '16proplus': '16 Pro+', '16pro+': '16 Pro+',
-      '16pro': '16 Pro', '16': '16'
-    },
-    colorAliases: {
-      'grey': 'Gray', 'mastergrey': 'Master Gray', 'deepbluetide': 'Deepblue Tides',
-      'deepbluetides': 'Deepblue Tides', 'stromblack': 'Storm Black'
-    },
-    manual: {}, stockOverrides: {}
-  };
-  const COLOR_PHRASES = ['titanium silver','titanium black','lavender purple','moss green','ivory gold','white swan','forest owl','swan black','kingfisher blue','violet parrot','parrot purple','peacock green','phantom navy','rally white','glacier blue','storm black','dusk gray','dawn purple','master gray','master grey','master purple','master gold','pebble grey','pebble gray','orchid purple','air white','air black','pulse purple','glory beige','deepblue tides','deepblue tide','volt black','aurora purple','racing green','metallic grey','starlight green','comet grey','lightning gold','golden coast','victory purple','glory white','endurance brown','pine green','cloud white','titan grey','brown','black','white','blue','purple','green','gray','grey','gold','silver','red','orange'];
+  const SKU = window.RealmeSkuCore;
+  if (!SKU) throw new Error('SKU 识别组件没有加载，请重新打开网页。');
+  const { DEFAULT_RULES, clean, norm, key, memory, stockSkuProblems, candidateScore } = SKU;
   const $ = (id) => document.getElementById(id);
   const app = { profiles: {}, rules: structuredClone(DEFAULT_RULES), sourceChoice: null, sourceConfirmed: false, view: 'model', scope: 'all', sort: 'turnAsc', result: null, historySnapshot: null, db: null };
 
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-  function clean(value) { return String(value ?? '').replace(/\[.*?\]|\(.*?\)|（.*?）/g, ' ').replace(/hadiah\s*gratis|free\s*gift|promo/ig, ' ').replace(/\s+/g, ' ').trim(); }
-  function norm(value) { return clean(value).toLowerCase().replace(/[＿_]/g, ' ').replace(/[|,，;；]/g, ' ').replace(/\s+/g, ' ').trim(); }
-  function key(value) { return norm(value).replace(/\+/g, ' plus ').replace(/[^a-z0-9]/g, ''); }
   function num(value) { const n = Number(String(value ?? '').replace(/[,，\s]/g, '').replace(/[^0-9.-]/g, '')); return Number.isFinite(n) ? n : 0; }
   function isSummary(value) { const s = key(value); return !s || /(total|subtotal|grandtotal|heji|zongji|xiaoj|dianpuheji)$/.test(s) || /(?:总计|合计|小计|汇总|店铺合计)/.test(String(value ?? '')); }
-  function title(value) { return String(value || '').replace(/\b\w/g, x => x.toUpperCase()); }
+  function color(value) { return SKU.color(value, app.rules); }
+  function parseSKU(raw, parts = {}, override = null) { return SKU.parseSKU(raw, parts, override, app.rules); }
   function show(message, type = 'info') { const node = $('notice'); node.textContent = message; node.className = `notice show ${type}`; }
   function setStatus(text, type = 'normal') { const node = $('status'); node.textContent = text; node.style.background = type === 'warn' ? 'var(--amber-soft)' : type === 'error' ? 'var(--red-soft)' : 'var(--brand-soft)'; node.style.color = type === 'warn' ? 'var(--amber)' : type === 'error' ? 'var(--red)' : 'var(--brand)'; }
 
@@ -186,44 +176,6 @@
     setStatus(!ready ? '等待正确字段' : conflict ? '需要确认 Shopee 来源' : '可以计算周转', conflict ? 'warn' : 'normal');
   }
 
-  function memory(value) {
-    const x = norm(value).replace(/\s/g, '');
-    // 先识别 WMS 常见的“128GB6GB”，避免把型号 P4x128GB 中的“4x128”误判成内存。
-    const m = x.match(/(\d{2,4})(?:gb|g)(\d{1,2})(?:gb|g)/i)
-      || x.match(/(?:^|[^a-z0-9])(\d{1,2})(?:gb|g)?[\/x×+\-](\d{2,4})(?:gb|g)/i)
-      || x.match(/(?:^|[^a-z0-9])(\d{2,4})(?:gb|g)?[\/x×+\-](\d{1,2})(?:gb|g)/i);
-    if (!m) return ''; const a = Math.min(+m[1], +m[2]), b = Math.max(+m[1], +m[2]); return `${a}GB/${b}GB`;
-  }
-  function aliases(type) { return type === 'model' ? app.rules.modelAliases : app.rules.colorAliases; }
-  function modelInfo(value) {
-    const source = clean(value).replace(/\brealme\b/ig, ' ');
-    const sixteen = source.match(/\b16\s*(?:pro\s*\+?)?(?![a-z0-9])/i);
-    if (sixteen) { const v = key(sixteen[0]); return { value: v.includes('pro') ? (v.includes('plus') ? '16 Pro+' : '16 Pro') : '16', recognized: true }; }
-    const m = source.match(/\b(techlife\s+buds|buds\s+clip|buds\s+t\d{1,4}(?:\s+lite)?|buds\s+air\s*\d{0,3}(?:\s*(?:pro|neo|lite|plus))?|watch\s*\d+[a-z]*|note\s*\d{1,3}(?:\s*(?:pro|plus|x|t|s|lite))?|c\s*\d{1,3}(?:\s*(?:i|x|s|a|pro|plus|lite))?|p\s*\d{1,3}(?:\s*(?:pro|plus|x|t|s|lite))?|narzo\s*\d{1,3}(?:\s*(?:pro|plus|x|t|s|lite))?)\b/i);
-    let out = (m ? m[1] : source.split(/[|,，;]/)[0]).replace(/\b(?:128|256|512)\s*(?:gb|g)\b/ig, ' ').replace(/\b(?:4|6|8|12|16)\s*(?:gb|g)\b/ig, ' ').replace(/\s+/g, ' ').trim();
-    out = out.replace(/\bpro\b/ig, 'Pro').replace(/\bplus\b/ig, 'Plus').replace(/\blite\b/ig, 'Lite').replace(/\bnote\s*/ig, 'Note ').replace(/\bc\s*/ig, 'C').replace(/\bp\s*/ig, 'P');
-    const mapped = aliases('model')[key(out)];
-    return { value: mapped || out || '未识别型号', recognized: Boolean(m || mapped) };
-  }
-  function model(value) { return modelInfo(value).value; }
-  function color(value) {
-    const source = norm(value); let found = COLOR_PHRASES.filter(x => source.includes(x)).sort((a, b) => b.length - a.length)[0] || '';
-    if (!found && value.includes('|')) found = clean(value).split('|').map(x => x.trim()).filter(x => x && !memory(x) && !/^realme\s/i.test(x)).pop() || '';
-    const mapped = aliases('color')[key(found)] || found; return mapped ? title(mapped).replace(/Grey/g, 'Gray') : '';
-  }
-  function parseSKU(raw, parts = {}, override = null) {
-    const label = [parts.model || raw, parts.memory, parts.color].filter(Boolean).join(' | ');
-    const rawKey = key(label), found = modelInfo(label), m = clean(override?.model || found.value) || '未识别型号', mem = memory(override?.memory || parts.memory || label) || clean(override?.memory || ''), col = color(override?.color || parts.color || label) || clean(override?.color || '');
-    return { raw: clean(label), rawKey, model: m, modelKey: key(m), memory: mem, color: col, fullKey: [key(m), key(mem), key(col)].join('|'), baseKey: [key(m), key(mem)].join('|'), recognizedModel: Boolean(override?.model || found.recognized) };
-  }
-  function isPhoneModel(name) { return /^(?:16(?:\s+Pro\+?)?|Note\s*\d|C\d|P\d|Narzo\s*\d)/i.test(name); }
-  function stockSkuProblems(sku) {
-    const problems = [];
-    if (!sku.recognizedModel) problems.push('未识别型号');
-    if (sku.recognizedModel && isPhoneModel(sku.model) && !sku.memory) problems.push('未识别内存');
-    if (sku.recognizedModel && !sku.color) problems.push('未识别颜色');
-    return problems;
-  }
   function warehouse(shop) { const s = norm(shop); if (/tiktok|\btk\b/.test(s) || /(?:1店|3店|shop\s*[13]\b|store\s*[13]\b)/.test(s)) return 'bali'; if (/(?:4店|shop\s*4\b|store\s*4\b)/.test(s)) return 'pnk'; if (/(?:2店|5店|shop\s*[25]\b|store\s*[25]\b)/.test(s)) return 'mks'; return 'unassigned'; }
   function stocksFromInputs() { const out = []; for (const slot of ['mks','pnk','bali']) { const s = profile(slot), m = s.mapping; for (const r of s.records) { const raw = value(r, m.sku); if (!raw || isSummary(raw)) continue; const initial = parseSKU(raw), saved = app.rules.stockOverrides?.[initial.rawKey]; out.push({ sku: saved ? parseSKU(raw, {}, saved) : initial, warehouse: slot, qty: Math.max(0, num(value(r, m.qty))), source: SLOT[slot].label }); } } return out; }
   function salesFromInputs() {
@@ -232,10 +184,8 @@
     for (const r of rows) out.push({ sku: parseSKU(r.sku), warehouse: warehouse(r.shop), qty: r.qty, source: `Shopee ${r.shop}` });
     return out;
   }
-  function similarity(a, b) { if (!a || !b) return 0; if (a === b) return 1; const aa = new Set(a), bb = new Set(b), common = [...aa].filter(x => bb.has(x)).length; return common / Math.max(aa.size, bb.size); }
-  function candidateScore(sale, stock) { if (sale.modelKey !== stock.modelKey) return 0; let score = 60; if (sale.memory && stock.memory) score += sale.memory === stock.memory ? 25 : 0; else score += 8; if (sale.color && stock.color) score += sale.color === stock.color ? 15 : Math.round(similarity(key(sale.color), key(stock.color)) * 8); else score += 5; return score; }
   function matchSales(stocks, sales) {
-    const catalog = [...new Map(stocks.map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = [];
+    const catalog = [...new Map(stocks.filter(x => !stockSkuProblems(x.sku).length).map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = [];
     for (const sale of sales) {
       const forced = manual[sale.sku.rawKey]; let target = forced ? catalog.find(x => x.fullKey === forced) : null;
       const exact = catalog.find(x => x.fullKey === sale.sku.fullKey); const candidates = catalog.map(x => ({ sku: x, score: candidateScore(sale.sku, x) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
@@ -282,7 +232,8 @@
   function renderIssues() {
     const issues = app.result?.issues || []; $('issueCount').textContent = `${issues.length} 条待确认`;
     $('issues').innerHTML = issues.length ? issues.map((x, index) => {
-      const all = [...x.candidates, ...[...new Map(app.result.stocks.map(s => [s.sku.fullKey, { sku: s.sku, score: 0 }])).values()].filter(z => !x.candidates.some(c => c.sku.fullKey === z.sku.fullKey))];
+      const checkedStocks = app.result.stocks.filter(s => !stockSkuProblems(s.sku).length);
+      const all = [...x.candidates, ...[...new Map(checkedStocks.map(s => [s.sku.fullKey, { sku: s.sku, score: 0 }])).values()].filter(z => !x.candidates.some(c => c.sku.fullKey === z.sku.fullKey))];
       const opts = all.map(c => `<option value="${esc(c.sku.fullKey)}">${esc(c.sku.raw)}${c.score ? `（匹配度 ${c.score}%）` : ''}</option>`).join('');
       return `<div class="issue"><strong>未自动匹配：${esc(x.sku.raw)}</strong><div class="raw">来源：${esc(x.source)}；周销量 ${x.qty}。${x.candidates[0] ? `最佳候选匹配度 ${x.candidates[0].score}%` : '没有同型号候选。'}</div><div class="candidate"><select id="candidate-${index}"><option value="">选择对应的库存 SKU…</option>${opts}</select><button class="btn" data-map-index="${index}">保存对应</button></div></div>`;
     }).join('') : '<div class="issue" style="border-color:#a8e1c0;background:var(--green-soft)"><strong style="color:var(--green)">没有待确认 SKU</strong><div class="raw">销售 SKU 均已自动或手动对应库存。</div></div>';
@@ -313,6 +264,7 @@
   }
   async function init() {
     app.db = await createStore(); app.rules = mergeRules(await app.db.get('rules'));
+    $('buildVersion').textContent = `版本 ${APP_VERSION}`;
     if (!window.XLSX) show('Excel 读取组件加载失败，请重新从本地文件打开页面。', 'error');
     bindUpload(); $('refreshPreview').onclick = renderPreview; $('calculate').onclick = () => calculate(true); $('rulesBtn').onclick = openRules; $('historyBtn').onclick = showHistory; $('exportCsv').onclick = exportCsv; $('exportRules').onclick = exportRules; $('importRules').onchange = e => importRules(e.target.files[0]);
     $('addModelAlias').onclick = async () => { const raw = $('modelAliasRaw').value, canonical = $('modelAliasCanonical').value; if (!raw || !canonical) return show('请填写报表写法和统一型号。', 'error'); app.rules.modelAliases[key(raw)] = clean(canonical); $('modelAliasRaw').value = $('modelAliasCanonical').value = ''; await saveRules(); if (app.result) calculate(false); };
