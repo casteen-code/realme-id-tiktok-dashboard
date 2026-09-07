@@ -1,7 +1,20 @@
-# Realme Indonesia TikTok dashboard
+# realme Indonesia local tools
 
-This repository contains only the browser viewer and an AES-encrypted dashboard package.
+## 库存周转管理
 
-- No raw order, sales, SKU, or customer data is committed here.
-- `dashboard.enc.json` can be read only with the separately shared access password.
-- Regenerate the encrypted package locally before publishing a dashboard refresh.
+双击打开 `inventory-turnover.html` 即可使用，无需安装软件或上传数据。
+
+1. 上传马卡萨、坤甸、巴厘岛三个 WMS 库存文件，以及 Shopee、TikTok 上周销量文件。
+2. 在“导入预览与数据对账”确认工作表、字段和控制数。库存表的“合计”行会自动排除，避免重复计算。
+3. 如果 Shopee 的“分组明细”和“透视表”不一致，先明确选择采用哪个来源，再计算。
+4. 在“待确认 SKU”中手动保存不确定的对应关系；规则只保存在本机，可备份为 JSON。
+
+仓库归属：Shopee 1店、3店和 TikTok 归巴厘岛；4店归坤甸；2店、5店归马卡萨。
+
+计算公式：`周转天数 = 可用库存 ÷（周销量 ÷ 7）`。
+
+## 数据安全
+
+- 所有 Excel 文件仅在当前浏览器中读取，不会上传。
+- 历史记录仅保存计算结果和对账信息，不保存原始 Excel。
+- 仓库中不提交订单、销量、SKU 或客户原始数据。
