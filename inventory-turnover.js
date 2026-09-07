@@ -186,7 +186,14 @@
     setStatus(!ready ? '等待正确字段' : conflict ? '需要确认 Shopee 来源' : '可以计算周转', conflict ? 'warn' : 'normal');
   }
 
-  function memory(value) { const x = norm(value).replace(/\s/g, ''); const m = x.match(/(\d{1,2})(?:gb|g)?[\/x×+\-](\d{2,4})(?:gb|g)/i) || x.match(/(\d{2,4})(?:gb|g)?[\/x×+\-](\d{1,2})(?:gb|g)/i) || x.match(/(\d{2,4})(?:gb|g)(\d{1,2})(?:gb|g)/i); if (!m) return ''; const a = Math.min(+m[1], +m[2]), b = Math.max(+m[1], +m[2]); return `${a}GB/${b}GB`; }
+  function memory(value) {
+    const x = norm(value).replace(/\s/g, '');
+    // 先识别 WMS 常见的“128GB6GB”，避免把型号 P4x128GB 中的“4x128”误判成内存。
+    const m = x.match(/(\d{2,4})(?:gb|g)(\d{1,2})(?:gb|g)/i)
+      || x.match(/(?:^|[^a-z0-9])(\d{1,2})(?:gb|g)?[\/x×+\-](\d{2,4})(?:gb|g)/i)
+      || x.match(/(?:^|[^a-z0-9])(\d{2,4})(?:gb|g)?[\/x×+\-](\d{1,2})(?:gb|g)/i);
+    if (!m) return ''; const a = Math.min(+m[1], +m[2]), b = Math.max(+m[1], +m[2]); return `${a}GB/${b}GB`;
+  }
   function aliases(type) { return type === 'model' ? app.rules.modelAliases : app.rules.colorAliases; }
   function modelInfo(value) {
     const source = clean(value).replace(/\brealme\b/ig, ' ');
