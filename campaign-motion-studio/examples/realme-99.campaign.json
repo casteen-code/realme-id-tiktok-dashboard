@@ -1,0 +1,314 @@
+{
+  "format": "campaign-motion-studio",
+  "version": 1,
+  "id": "realme-99-bali-template",
+  "name": "realme 9.9 · Bali 分层模板",
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "duration": 5,
+    "fps": 30,
+    "background": "#fff0bd"
+  },
+  "assets": {
+    "background": {
+      "name": "background.png",
+      "src": "assets/realme-99/background.png",
+      "kind": "image",
+      "width": 941,
+      "height": 1672
+    },
+    "gate-left": {
+      "name": "gate-left.png",
+      "src": "assets/realme-99/gate-left.png",
+      "kind": "image",
+      "width": 371,
+      "height": 1492
+    },
+    "gate-right": {
+      "name": "gate-right.png",
+      "src": "assets/realme-99/gate-right.png",
+      "kind": "image",
+      "width": 371,
+      "height": 1494
+    },
+    "headline": {
+      "name": "headline.png",
+      "src": "assets/realme-99/headline.png",
+      "kind": "image",
+      "width": 510,
+      "height": 306
+    },
+    "palm-left": {
+      "name": "palm-left.png",
+      "src": "assets/realme-99/palm-left.png",
+      "kind": "image",
+      "width": 428,
+      "height": 451
+    },
+    "palm-right": {
+      "name": "palm-right.png",
+      "src": "assets/realme-99/palm-right.png",
+      "kind": "image",
+      "width": 390,
+      "height": 450
+    },
+    "pedestal": {
+      "name": "pedestal.png",
+      "src": "assets/realme-99/pedestal.png",
+      "kind": "image",
+      "width": 281,
+      "height": 236
+    },
+    "product-a": {
+      "name": "product-a.png",
+      "src": "assets/realme-99/product-a.png",
+      "kind": "image",
+      "width": 500,
+      "height": 990
+    },
+    "product-b": {
+      "name": "product-b.png",
+      "src": "assets/realme-99/product-b.png",
+      "kind": "image",
+      "width": 596,
+      "height": 1160
+    },
+    "realmeow": {
+      "name": "realmeow.png",
+      "src": "assets/realme-99/realmeow.png",
+      "kind": "image",
+      "width": 288,
+      "height": 395
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "name": "天空 · 海面 · 舞台",
+      "type": "image",
+      "assetId": "background",
+      "x": 540,
+      "y": 960,
+      "width": 1080,
+      "height": 1920,
+      "role": "background",
+      "locked": true
+    },
+    {
+      "id": "gate-left",
+      "name": "左侧巴厘岛门",
+      "type": "image",
+      "assetId": "gate-left",
+      "x": 174,
+      "y": 955,
+      "width": 278,
+      "height": 1120,
+      "role": "decoration",
+      "locked": true
+    },
+    {
+      "id": "gate-right",
+      "name": "右侧巴厘岛门",
+      "type": "image",
+      "assetId": "gate-right",
+      "x": 906,
+      "y": 955,
+      "width": 278,
+      "height": 1120,
+      "role": "decoration",
+      "locked": true
+    },
+    {
+      "id": "palm-left",
+      "name": "左上椰叶与花",
+      "type": "image",
+      "assetId": "palm-left",
+      "x": 0,
+      "y": 0,
+      "width": 324,
+      "height": 365,
+      "role": "decoration",
+      "anchorX": 0,
+      "anchorY": 0,
+      "animation": {
+        "preset": "sway",
+        "amplitude": 1.3
+      }
+    },
+    {
+      "id": "palm-right",
+      "name": "右上椰叶与花",
+      "type": "image",
+      "assetId": "palm-right",
+      "x": 1080,
+      "y": 0,
+      "width": 324,
+      "height": 365,
+      "role": "decoration",
+      "anchorX": 1,
+      "anchorY": 0,
+      "animation": {
+        "preset": "sway",
+        "amplitude": 1.2,
+        "phase": 0.35
+      }
+    },
+    {
+      "id": "pedestal",
+      "name": "格纹展台",
+      "type": "image",
+      "assetId": "pedestal",
+      "x": 165,
+      "y": 1435,
+      "width": 310,
+      "height": 260,
+      "role": "decoration"
+    },
+    {
+      "id": "realmeow",
+      "name": "realme 小猫",
+      "type": "image",
+      "assetId": "realmeow",
+      "x": 175,
+      "y": 1312,
+      "width": 335,
+      "height": 458,
+      "role": "decoration",
+      "anchorY": 1,
+      "animation": {
+        "preset": "sway",
+        "amplitude": 1.4
+      }
+    },
+    {
+      "id": "sale-lightning",
+      "name": "主题闪电光效",
+      "type": "lightning",
+      "role": "title",
+      "x": 540,
+      "y": 280,
+      "width": 880,
+      "height": 430,
+      "color": "#ffda24",
+      "animation": {
+        "preset": "bounce",
+        "amplitude": 26,
+        "cycles": 1
+      }
+    },
+    {
+      "id": "headline",
+      "name": "9⚡9 SUPER DEALS 主题图",
+      "type": "image",
+      "assetId": "headline",
+      "x": 545,
+      "y": 305,
+      "width": 630,
+      "height": 378,
+      "role": "title",
+      "shadow": 10,
+      "animation": {
+        "preset": "bounce",
+        "amplitude": 33,
+        "cycles": 1
+      }
+    },
+    {
+      "id": "series",
+      "name": "产品系列标题",
+      "type": "text",
+      "role": "copy",
+      "text": "realme P4 Series",
+      "x": 540,
+      "y": 558,
+      "width": 900,
+      "height": 100,
+      "fontSize": 69
+    },
+    {
+      "id": "new-tag",
+      "name": "新品标签",
+      "type": "text",
+      "role": "copy",
+      "text": "NEW",
+      "x": 925,
+      "y": 541,
+      "width": 90,
+      "height": 50,
+      "fontSize": 23,
+      "bold": true
+    },
+    {
+      "id": "tagline",
+      "name": "活动口号",
+      "type": "text",
+      "role": "copy",
+      "text": "M A K E   I T   R E A L",
+      "x": 540,
+      "y": 628,
+      "width": 900,
+      "height": 100,
+      "fontSize": 30
+    },
+    {
+      "id": "product-a",
+      "name": "产品 A · 蓝色手机",
+      "type": "image",
+      "assetId": "product-a",
+      "x": 365,
+      "y": 945,
+      "width": 230,
+      "height": 455,
+      "role": "product",
+      "scale": 1.18,
+      "rotation": -7,
+      "shadow": 18,
+      "animation": {
+        "preset": "float",
+        "amplitude": 10,
+        "travel": 205,
+        "entry": {
+          "type": "left",
+          "start": 0.6,
+          "duration": 0.74
+        },
+        "exit": {
+          "type": "left",
+          "start": 4,
+          "duration": 0.62
+        }
+      }
+    },
+    {
+      "id": "product-b",
+      "name": "产品 B · 白色手机",
+      "type": "image",
+      "assetId": "product-b",
+      "x": 770,
+      "y": 1000,
+      "width": 263,
+      "height": 512,
+      "role": "product",
+      "scale": 1.18,
+      "rotation": 7,
+      "shadow": 18,
+      "animation": {
+        "preset": "float",
+        "amplitude": 10,
+        "phase": 0.2,
+        "travel": 205,
+        "entry": {
+          "type": "right",
+          "start": 0.75,
+          "duration": 0.74
+        },
+        "exit": {
+          "type": "right",
+          "start": 4.1,
+          "duration": 0.62
+        }
+      }
+    }
+  ]
+}

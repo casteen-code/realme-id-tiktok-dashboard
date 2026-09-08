@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><title>Campaign Motion Studio · 活动背景工坊</title>
+<style>__STYLES__</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">ϟ</span><div><strong>活动背景工坊</strong><small>Campaign Motion Studio</small></div></div>
+  <label class="campaign-name"><span class="sr-only">活动名称</span><input id="project-name" maxlength="100" value="realme 9.9 · Bali"></label>
+  <div class="top-actions"><button id="new-project">新活动</button><button id="open-project">打开项目</button><button id="save-project" class="primary">保存项目</button></div>
+</header>
+<div class="workspace" data-panel="layers">
+  <aside class="layers-pane">
+    <div class="pane-heading"><h2>画面元素</h2><span id="layer-count">0</span></div>
+    <p class="muted compact">拖动图层排序，双击名称可重命名。</p>
+    <div class="add-actions"><button id="add-background">背景</button><button id="add-image">＋ 图片</button><button id="add-text">＋ 文字</button><button id="add-lightning">＋ 闪电</button></div>
+    <div class="layer-view-controls" aria-label="图层显示方式"><button data-layer-view="list" class="active">图层列表</button><button data-layer-view="tiles">缩略图</button><span>上层在前</span></div>
+    <div id="layer-list" class="layer-list" data-view="list" aria-label="图层列表"></div>
+    <div class="layer-operations"><button id="layer-up" title="将元素移到前一层">上移一层</button><button id="layer-down" title="将元素移到后一层">下移一层</button><button id="duplicate-layer">复制元素</button><button id="delete-layer" class="danger">删除元素</button></div>
+    <div class="draft-tools"><button id="undo" disabled>撤销</button><button id="redo" disabled>重做</button><button id="restore-draft" disabled>恢复草稿</button></div>
+    <div id="draft-status" class="muted tiny">保存项目会同时保留素材和设置。</div>
+  </aside>
+  <main class="stage-pane">
+    <div class="stage-top"><span id="canvas-summary">1080 × 1920 · 5 秒</span><label><input id="show-guides" type="checkbox" checked> 编辑框</label></div>
+    <div class="canvas-slot" id="canvas-slot"><div class="canvas-wrap" id="canvas-wrap"><canvas id="stage" width="1080" height="1920" aria-label="活动背景预览，拖动元素移动，四角缩放，上方圆点旋转"></canvas><div class="loading" id="loading">正在载入分层素材…</div></div></div>
+    <div class="transport"><button id="play" aria-label="播放或暂停">▶</button><input id="timeline" type="range" min="0" max="4.999" step="0.001" value="2" aria-label="预览时间"><output id="time-label">2.00 / 5s</output></div>
+    <div class="stage-note">拖动移动 · 四角缩放 · 上方圆点旋转 · Shift 对齐角度</div>
+    <div class="export-row"><button id="export-video" class="primary" disabled>导出视频</button><button id="export-html">保存独立 HTML</button><button id="export-png">保存这一帧</button></div>
+    <div id="status" class="status" role="status">换图 → 调动效 → 保存项目 → 导出视频</div>
+  </main>
+  <div class="mobile-panel-tabs"><button data-panel="layers" class="active">图层</button><button data-panel="inspector">属性与动效</button></div>
+  <aside class="inspector-pane">
+    <div class="pane-heading"><h2>元素设置</h2><span id="selected-kind">图片</span></div>
+    <div id="inspector"></div>
+    <section class="project-settings"><h3>整场设置</h3><div class="form-row"><label>循环时长（秒）<input id="duration" type="number" min="2" max="15" step="0.1" value="5"></label><label>底色<input id="background-color" type="color" value="#fff0bd"></label></div><p class="muted tiny">1080 × 1920 · 30fps · 无声。自带视频素材应有自然的首尾衔接。</p></section>
+    <details class="quick-help"><summary>下次活动怎么换？</summary><p>让 GPT 把背景、主题、产品、装饰分别输出。背景用 9:16 图片，其余元素用透明 PNG。选中左侧元素后点“替换素材”，大小、位置、动画会继续保留。带底色的图片可点“抠图 / 去底”处理。</p><p>“保存项目”包含图片和参数，下次用“打开项目”继续。“保存独立 HTML”会把当前活动打包成可双击打开的编辑器。</p></details>
+  </aside>
+</div>
+<dialog id="cutout-dialog" class="cutout-dialog" aria-labelledby="cutout-title">
+  <div class="cutout-header"><div><h2 id="cutout-title">抠图 / 去底</h2><p id="cutout-name"></p></div><button id="cutout-close" aria-label="关闭抠图">×</button></div>
+  <div class="cutout-layout">
+    <aside class="cutout-tools">
+      <button id="cutout-auto" class="primary wide-button">自动去纯色底</button>
+      <p class="muted tiny">白底、绿幕或相近纯色背景可快速处理；复杂背景可用圈选和画笔。</p>
+      <div class="cutout-mode-grid"><button data-cutout-mode="pick" class="active">点选背景</button><button data-cutout-mode="polygon">圈选保留</button><button data-cutout-mode="erase">擦除</button><button data-cutout-mode="restore">恢复</button></div>
+      <div class="control"><div class="control-head"><label for="cutout-tolerance">去底容差</label><output id="cutout-tolerance-value">35</output></div><input id="cutout-tolerance" type="range" min="0" max="120" step="1" value="35"></div>
+      <label class="cutout-check"><input id="cutout-connected" type="checkbox" checked> 只去除连通区域</label>
+      <div class="control"><div class="control-head"><label for="cutout-brush">画笔大小</label><output id="cutout-brush-value">65 px</output></div><input id="cutout-brush" type="range" min="5" max="200" step="1" value="65"></div>
+      <div class="control"><div class="control-head"><label for="cutout-feather">边缘柔化</label><output id="cutout-feather-value">0 px</output></div><input id="cutout-feather" type="range" min="0" max="6" step="1" value="0"></div>
+      <button id="cutout-finish-polygon" class="wide-button" disabled>完成圈选</button>
+      <div class="button-row"><button id="cutout-undo" disabled>撤销一步</button><button id="cutout-reset">恢复原图</button></div>
+      <p class="muted tiny">透明区域显示为棋盘格。这里只改变图片，位置和动画会保留。</p>
+    </aside>
+    <div class="cutout-preview"><div id="cutout-canvas-slot" class="cutout-canvas-slot"><div id="cutout-image-wrap" class="cutout-image-wrap checker"><canvas id="cutout-canvas" width="1" height="1"></canvas><canvas id="cutout-overlay" width="1" height="1" aria-hidden="true"></canvas><span id="cutout-cursor" hidden></span></div></div><div id="cutout-resolution" class="muted tiny"></div></div>
+  </div>
+  <div class="cutout-footer"><div id="cutout-status" role="status">点选背景开始去底。</div><div class="button-row"><button id="cutout-cancel">取消</button><button id="cutout-download">下载透明 PNG</button><button id="cutout-apply" class="primary">应用到图层</button></div></div>
+</dialog>
+<input id="media-file" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" hidden>
+<input id="project-file" type="file" accept="application/json,.json" hidden>
+<script id="boot-project" type="application/json">__PROJECT__</script>
+<script>__ENGINE__</script>
+<script>__CUTOUT__</script>
+<script>__CUTOUT_UI__</script>
+<script>__MP4__</script>
+<script>__EDITOR__</script>
+</body></html>

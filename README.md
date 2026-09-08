@@ -30,3 +30,12 @@
 - 识别、匹配和库存自检共用 `sku-core.js` 这一套规则，避免页面和修复脚本各自判断。
 - `tests/sku-regression.js` 会检查库存写法与销量写法是否统一到同一 SKU，并确保 `16`、`16 Pro`、`16 Pro+` 不会混为一款。
 - 每次更新 SKU 规则前运行 `node tests/sku-regression.js`；GitHub 也会自动执行该检查。
+
+## 活动背景工坊 · Campaign Motion Studio
+
+在线打开：[活动背景编辑器](https://casteen-code.github.io/realme-id-tiktok-dashboard/campaign-motion-studio/)
+
+编辑器源码、独立素材、使用说明和检查脚本位于 [`campaign-motion-studio/`](campaign-motion-studio/)。支持更换活动图片、抠图、独立旋转与动效、手机间距、固定预览、图层排序和视频导出。图片及项目在当前浏览器中处理；请使用“保存项目”或“保存独立 HTML”保留自己的活动。
+
+开发：在 `campaign-motion-studio/` 目录运行 `npm ci`、`npm test`、`npm run build`，将源码和重新生成的 `index.html` 一起提交。现有 Pages 从 `main` 根目录发布，编辑器作为子目录页面提供。
+
