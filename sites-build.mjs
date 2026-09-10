@@ -13,6 +13,11 @@ const files = [
   "vendor/xlsx.full.min.js",
 ];
 
+const dashboardFiles = [
+  ["index.html", "index.html"],
+  ["dashboard.enc.json", "dashboard.enc.json"],
+];
+
 const worker = `export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -34,10 +39,17 @@ const workerConfig = {
 await rm(dist, { recursive: true, force: true });
 await mkdir(resolve(client, "vendor"), { recursive: true });
 await mkdir(server, { recursive: true });
+await mkdir(resolve(client, "tiktok-dashboard"), { recursive: true });
 
 for (const file of files) {
   const target = file === "inventory-turnover.html" ? "index.html" : file;
   await cp(resolve(root, file), resolve(client, target));
+}
+
+// The inventory tool stays at the site root. The encrypted operating dashboard
+// has its own stable URL, so publishing either project cannot replace the other.
+for (const [source, target] of dashboardFiles) {
+  await cp(resolve(root, source), resolve(client, "tiktok-dashboard", target));
 }
 
 await writeFile(resolve(server, "index.js"), worker);

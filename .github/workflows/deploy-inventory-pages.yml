@@ -8,6 +8,8 @@ on:
       - inventory-turnover.js
       - sku-core.js
       - vendor/xlsx.full.min.js
+      - index.html
+      - dashboard.enc.json
       - sites-build.mjs
       - .github/workflows/deploy-inventory-pages.yml
   workflow_dispatch:
