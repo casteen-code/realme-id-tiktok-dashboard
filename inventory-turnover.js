@@ -6,7 +6,7 @@
     { key: 'shop1', label: '1店' }, { key: 'shop2', label: '2店' }, { key: 'shop3', label: '3店' },
     { key: 'shop4', label: '4店' }, { key: 'shop5', label: '5店' }, { key: 'tiktok', label: 'TikTok' }
   ];
-  const APP_VERSION = 'v3.4.1';
+  const APP_VERSION = 'v3.4.2';
   const SLOT = {
     mks: { label: '马卡萨仓库存', type: 'stock', warehouse: 'mks' },
     pnk: { label: '坤甸仓库存', type: 'stock', warehouse: 'pnk' },
@@ -16,7 +16,7 @@
   };
   const SKU = window.RealmeSkuCore;
   if (!SKU) throw new Error('SKU 识别组件没有加载，请重新打开网页。');
-  const { DEFAULT_RULES, clean, norm, key, memory, stockSkuProblems, candidateScore } = SKU;
+  const { DEFAULT_RULES, clean, norm, key, memory, stockSkuProblems, candidateScore, isGiftSku } = SKU;
   const $ = (id) => document.getElementById(id);
   const app = { profiles: {}, rules: structuredClone(DEFAULT_RULES), sourceChoice: null, sourceConfirmed: false, view: 'model', scope: 'all', sort: 'turnAsc', result: null, historySnapshot: null, db: null };
 
@@ -61,7 +61,7 @@
     });
   }
 
-  function header(value) { return norm(value).replace(/[ _-]/g, ''); }
+  function header(value) { return norm(String(value ?? '').normalize('NFKC')).replace(/[ _-]/g, ''); }
   function headerScore(row, slot) {
     const text = row.map(header).join(' ');
     const has = (...names) => names.some(n => text.includes(n));
@@ -87,13 +87,13 @@
     const memory = field(headers, ['内存版本','memoryversion','memory','ramrom','storage','规格','version']);
     const color = field(headers, ['颜色','color','warna']);
     const shop = field(headers, ['店铺名称','店铺','namatoko','shopname','storename','shop','store','channel','渠道']);
-    const stores = headers.filter(h => /^(?:[1-5]店|shop\s*[1-5]|store\s*[1-5])$/i.test(String(h).trim()));
+    const stores = headers.filter(h => /^(?:[1-5]店|shop[1-5]|store[1-5])$/.test(header(h)));
     return kind === 'stock' ? { sku, qty: qtyStock } : kind === 'tiktok' ? { model, memory, color, qty: qtySales } : { sku, shop, qty: qtySales, stores };
   }
   function chooseSheet(sheets, slot) {
     const kind = SLOT[slot].type;
     const sorted = [...sheets].sort((a, b) => (b.score * 1000 + b.records.length) - (a.score * 1000 + a.records.length));
-    if (kind === 'shopee') return sorted.find(s => s.mapping.sku && s.mapping.shop && s.mapping.qty) || sorted[0];
+    if (kind === 'shopee') return sorted.find(s => shopeeMode(s.mapping)) || sorted[0];
     return sorted[0];
   }
   async function readFile(slot, file) {
@@ -111,36 +111,53 @@
   function profile(slot) { const p = app.profiles[slot]; return p ? p.sheets.find(s => s.name === p.chosenName) : null; }
   function schemaText(slot, sheet) {
     if (!sheet) return '等待文件'; const m = sheet.mapping;
+    if (slot === 'shopee' && shopeeMode(m) === 'pivot') return `SKU：${m.sku}；店铺销量列：${m.stores.join('、')}（横向表）`;
     const pairs = SLOT[slot].type === 'stock' ? [['SKU', m.sku], ['库存', m.qty]] : SLOT[slot].type === 'tiktok' ? [['机型', m.model], ['内存', m.memory], ['颜色', m.color], ['销量', m.qty]] : [['SKU', m.sku], ['店铺', m.shop], ['销量', m.qty]];
     return pairs.map(([a, b]) => `${a}：${b || '未找到'}`).join('；');
   }
+  function shopeeMode(mapping) {
+    if (!mapping?.sku) return '';
+    if (mapping.stores?.length) return 'pivot';
+    return mapping.shop && mapping.qty ? 'detail' : '';
+  }
   function rawSummary(slot) {
-    const s = profile(slot); if (!s) return { rows: 0, quantity: 0, valid: false };
-    const type = SLOT[slot].type, m = s.mapping; let rows = 0, quantity = 0;
-    if (type === 'stock') for (const r of s.records) { const sku = value(r, m.sku); if (!sku || isSummary(sku)) continue; rows++; quantity += Math.max(0, num(value(r, m.qty))); }
-    if (type === 'tiktok') for (const r of s.records) { const sku = value(r, m.model); if (!sku || isSummary(sku)) continue; rows++; quantity += Math.max(0, num(value(r, m.qty))); }
-    if (type === 'shopee') for (const r of s.records) { const sku = value(r, m.sku); if (!sku || isSummary(sku)) continue; rows++; quantity += Math.max(0, num(value(r, m.qty))); }
-    return { rows, quantity, valid: rows > 0 && Boolean(type === 'stock' ? m.sku && m.qty : type === 'tiktok' ? m.model && m.qty : m.sku && m.shop && m.qty) };
+    const s = profile(slot); if (!s) return { rows: 0, quantity: 0, valid: false, excludedRows: 0, excludedQuantity: 0 };
+    const type = SLOT[slot].type, m = s.mapping, mode = type === 'shopee' ? shopeeMode(m) : '';
+    let rows = 0, quantity = 0, excludedRows = 0, excludedQuantity = 0;
+    const byStore = emptyStoreSales();
+    for (const r of s.records) {
+      const raw = value(r, type === 'tiktok' ? m.model : m.sku);
+      if (!raw || isSummary(raw)) continue;
+      const q = mode === 'pivot' ? m.stores.reduce((sum, col) => sum + Math.max(0, num(value(r, col))), 0) : Math.max(0, num(value(r, m.qty)));
+      if (isGiftSku(raw)) { excludedRows++; excludedQuantity += q; continue; }
+      rows++; quantity += q;
+    }
+    if (type === 'shopee') for (const r of shopeeRows(s, mode)) {
+      const store = storeKey(r.shop); if (store) byStore[store] += r.qty;
+    }
+    const fieldsValid = type === 'stock' ? m.sku && m.qty : type === 'tiktok' ? m.model && m.qty : mode;
+    return { rows, quantity, byStore, excludedRows, excludedQuantity, valid: rows + excludedRows > 0 && Boolean(fieldsValid) };
   }
   function findShopeeSheets() {
     const p = app.profiles.shopee; if (!p) return {};
-    const detail = p.sheets.find(s => s.mapping.sku && s.mapping.shop && s.mapping.qty);
-    const pivot = p.sheets.find(s => s.mapping.sku && s.mapping.stores?.length >= 2);
+    const selected = profile('shopee'), mode = shopeeMode(selected?.mapping);
+    const detail = mode === 'detail' ? selected : p.sheets.find(s => shopeeMode(s.mapping) === 'detail');
+    const pivot = mode === 'pivot' ? selected : p.sheets.find(s => shopeeMode(s.mapping) === 'pivot');
     return { detail, pivot };
   }
   function shopeeRows(sheet, mode) {
-    if (!sheet) return []; const m = sheet.mapping, out = [];
+    if (!sheet || !mode) return []; const m = sheet.mapping, out = [];
     if (mode === 'pivot') {
-      for (const r of sheet.records) { const sku = value(r, m.sku); if (!sku || isSummary(sku)) continue; for (const store of m.stores) { const q = num(value(r, store)); if (q > 0) out.push({ sku, shop: store, qty: q }); } }
+      for (const r of sheet.records) { const sku = value(r, m.sku); if (!sku || isSummary(sku) || isGiftSku(sku)) continue; for (const store of m.stores) { const q = num(value(r, store)); if (q > 0) out.push({ sku, shop: store, qty: q }); } }
     } else {
-      for (const r of sheet.records) { const sku = value(r, m.sku), shop = value(r, m.shop), qty = num(value(r, m.qty)); if (!sku || isSummary(sku) || qty <= 0) continue; out.push({ sku, shop, qty }); }
+      for (const r of sheet.records) { const sku = value(r, m.sku), shop = value(r, m.shop), qty = num(value(r, m.qty)); if (!sku || isSummary(sku) || isGiftSku(sku) || qty <= 0) continue; out.push({ sku, shop, qty }); }
     }
     return out;
   }
   function reconcileShopee() {
     const { detail, pivot } = findShopeeSheets(); const detailRows = shopeeRows(detail, 'detail'), pivotRows = shopeeRows(pivot, 'pivot');
-    if (!detailRows.length || !pivotRows.length) return { hasBoth: false, detailRows, pivotRows, differences: [] };
-    const group = rows => rows.reduce((a, x) => { const k = `${clean(x.sku)}|${clean(x.shop)}`; a[k] = (a[k] || 0) + x.qty; return a; }, {});
+    if (!detail || !pivot) return { hasBoth: false, detailRows, pivotRows, differences: [] };
+    const group = rows => rows.reduce((a, x) => { const k = `${norm(x.sku)}|${storeKey(x.shop) || norm(x.shop)}`; a[k] = (a[k] || 0) + x.qty; return a; }, {});
     const a = group(detailRows), b = group(pivotRows), keys = new Set([...Object.keys(a), ...Object.keys(b)]);
     const differences = [...keys].filter(k => (a[k] || 0) !== (b[k] || 0)).map(k => ({ key: k, detail: a[k] || 0, pivot: b[k] || 0 }));
     return { hasBoth: true, detailRows, pivotRows, differences };
@@ -150,9 +167,9 @@
     $('previewGrid').innerHTML = Object.keys(SLOT).map(slot => {
       const p = app.profiles[slot], s = profile(slot), summary = rawSummary(slot); if (!p) return `<div class="preview"><strong>${SLOT[slot].label}</strong><p>等待上传</p></div>`;
       const options = p.sheets.map(x => `<option value="${esc(x.name)}" ${x.name === p.chosenName ? 'selected' : ''}>${esc(x.name)}（${x.records.length} 行）</option>`).join('');
-      return `<div class="preview"><strong>${SLOT[slot].label}</strong><p class="file">${esc(p.fileName)}</p><p>工作表：<select class="sheet-select" data-slot="${slot}">${options}</select></p><p>${esc(schemaText(slot, s))}</p><p class="${summary.valid ? 'ok' : 'bad'}">${summary.valid ? `读取 ${summary.rows} 行，数量 ${summary.quantity.toLocaleString()}` : '字段不完整，不能参与计算'}</p></div>`;
+      return `<div class="preview"><strong>${SLOT[slot].label}</strong><p class="file">${esc(p.fileName)}</p><p>工作表：<select class="sheet-select" data-slot="${slot}">${options}</select></p><p>${esc(schemaText(slot, s))}</p><p class="${summary.valid ? 'ok' : 'bad'}">${summary.valid ? `读取 ${summary.rows} 行，数量 ${summary.quantity.toLocaleString()}` : '字段不完整，不能参与计算'}</p>${summary.excludedRows ? `<p>已排除赠品 zp888：${summary.excludedRows} 行，数量 ${summary.excludedQuantity.toLocaleString()}</p>` : ''}</div>`;
     }).join('');
-    document.querySelectorAll('.sheet-select').forEach(node => node.onchange = () => { app.profiles[node.dataset.slot].chosenName = node.value; app.sourceConfirmed = false; renderPreview(); });
+    document.querySelectorAll('.sheet-select').forEach(node => node.onchange = () => { app.profiles[node.dataset.slot].chosenName = node.value; app.sourceChoice = null; app.sourceConfirmed = false; renderPreview(); });
     renderAudit();
   }
   function renderAudit() {
@@ -168,7 +185,7 @@
     if (rec.hasBoth) {
       const detailTotal = rec.detailRows.reduce((a, x) => a + x.qty, 0), pivotTotal = rec.pivotRows.reduce((a, x) => a + x.qty, 0), mismatch = rec.differences.length;
       html += `<div class="audit-item ${mismatch ? 'alert' : 'good'}"><strong>Shopee 两张表对账</strong><p>分组明细 ${detailTotal.toLocaleString()}；透视表 ${pivotTotal.toLocaleString()}${mismatch ? `；发现 ${mismatch} 项差异` : '；完全一致'}</p>${mismatch ? `<p class="hint">计算前请选择采用哪一个来源：<label><input type="radio" name="shopeeSource" value="detail" ${app.sourceChoice === 'detail' ? 'checked' : ''}> 分组明细</label> <label><input type="radio" name="shopeeSource" value="pivot" ${app.sourceChoice === 'pivot' ? 'checked' : ''}> 透视表</label></p><p class="hint">示例：${rec.differences.slice(0, 2).map(x => `${esc(x.key.split('|')[0])}（明细 ${x.detail} / 透视 ${x.pivot}）`).join('；')}</p>` : ''}</div>`;
-    } else html += `<div class="audit-item ${sh.valid ? 'good' : 'alert'}"><strong>Shopee 周销量</strong><p>${sh.valid ? `${sh.rows} 条 SKU，合计 ${sh.quantity.toLocaleString()}` : '尚未识别到 SKU、店铺和销量字段'}</p></div>`;
+    } else html += `<div class="audit-item ${sh.valid ? 'good' : 'alert'}"><strong>Shopee 周销量</strong><p>${sh.valid ? `${sh.rows} 条 SKU，合计 ${sh.quantity.toLocaleString()}` : '尚未识别到 SKU 和分店销量列，或店铺、销量字段'}</p>${sh.valid ? `<p class="hint">${STORE_COLUMNS.slice(0,5).map(x => `${x.label} ${sh.byStore[x.key].toLocaleString()}`).join('；')}</p>` : ''}</div>`;
     $('audit').innerHTML = html;
     document.querySelectorAll('[name=shopeeSource]').forEach(x => x.onchange = () => { app.sourceChoice = x.value; app.sourceConfirmed = true; updateCalculateButton(); });
     updateCalculateButton(allLoaded, stockChecks, tk, sh, rec);
@@ -181,9 +198,9 @@
   }
 
   function storeKey(shop) {
-    const s = norm(shop);
+    const s = norm(String(shop ?? '').normalize('NFKC'));
     if (/tiktok|\btk\b/.test(s)) return 'tiktok';
-    const found = STORE_COLUMNS.slice(0, 5).find(({ key, label }) => new RegExp(`(?:${label}|shop\\s*${key.slice(-1)}\\b|store\\s*${key.slice(-1)}\\b)`).test(s));
+    const found = STORE_COLUMNS.slice(0, 5).find(({ key }) => new RegExp(`(?:${key.slice(-1)}\\s*店|shop\\s*${key.slice(-1)}\\b|store\\s*${key.slice(-1)}\\b)`).test(s));
     return found?.key || '';
   }
   function warehouse(shop) { const store = storeKey(shop); if (store === 'tiktok' || store === 'shop1' || store === 'shop3') return 'bali'; if (store === 'shop4') return 'pnk'; if (store === 'shop2' || store === 'shop5') return 'mks'; return 'unassigned'; }
@@ -196,15 +213,16 @@
     if (scope === 'mks') return '马卡萨仓库存 + 2店、5店销量';
     return '三仓库存合计 + 1–5店、TikTok 销量合计';
   }
-  function stocksFromInputs() { const out = []; for (const slot of ['mks','pnk','bali']) { const s = profile(slot), m = s.mapping; for (const r of s.records) { const raw = value(r, m.sku); if (!raw || isSummary(raw)) continue; const initial = parseSKU(raw), saved = app.rules.stockOverrides?.[initial.rawKey]; out.push({ sku: saved ? parseSKU(raw, {}, saved) : initial, warehouse: slot, qty: Math.max(0, num(value(r, m.qty))), source: SLOT[slot].label }); } } return out; }
+  function stocksFromInputs() { const out = []; for (const slot of ['mks','pnk','bali']) { const s = profile(slot), m = s.mapping; for (const r of s.records) { const raw = value(r, m.sku); if (!raw || isSummary(raw) || isGiftSku(raw)) continue; const initial = parseSKU(raw), saved = app.rules.stockOverrides?.[initial.rawKey]; out.push({ sku: saved ? parseSKU(raw, {}, saved) : initial, warehouse: slot, qty: Math.max(0, num(value(r, m.qty))), source: SLOT[slot].label }); } } return out; }
   function salesFromInputs() {
-    const out = [], t = profile('tiktok'); if (t) for (const r of t.records) { const raw = value(r, t.mapping.model), qty = num(value(r, t.mapping.qty)); if (!raw || isSummary(raw) || qty <= 0) continue; out.push({ sku: parseSKU(raw, { model: raw, memory: value(r, t.mapping.memory), color: value(r, t.mapping.color) }), warehouse: 'bali', store: 'tiktok', qty, source: 'TikTok' }); }
-    const rec = reconcileShopee(), mode = rec.hasBoth ? (app.sourceChoice || 'detail') : 'detail', rows = mode === 'pivot' ? rec.pivotRows : rec.detailRows.length ? rec.detailRows : shopeeRows(profile('shopee'), 'detail');
+    const out = [], t = profile('tiktok'); if (t) for (const r of t.records) { const raw = value(r, t.mapping.model), qty = num(value(r, t.mapping.qty)); if (!raw || isSummary(raw) || isGiftSku(raw) || qty <= 0) continue; out.push({ sku: parseSKU(raw, { model: raw, memory: value(r, t.mapping.memory), color: value(r, t.mapping.color) }), warehouse: 'bali', store: 'tiktok', qty, source: 'TikTok' }); }
+    const rec = reconcileShopee(), selected = profile('shopee'), mode = app.sourceChoice || shopeeMode(selected?.mapping);
+    const rows = rec.hasBoth ? (mode === 'pivot' ? rec.pivotRows : rec.detailRows) : shopeeRows(selected, mode);
     for (const r of rows) out.push({ sku: parseSKU(r.sku), warehouse: warehouse(r.shop), store: storeKey(r.shop), qty: r.qty, source: `Shopee ${r.shop}` });
     return out;
   }
   function matchSales(stocks, sales) {
-    const catalog = [...new Map(stocks.filter(x => !stockSkuProblems(x.sku).length).map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = [];
+    const catalog = [...new Map(stocks.filter(x => !x.sku.excluded && !stockSkuProblems(x.sku).length).map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = [];
     for (const sale of sales) {
       const forced = manual[sale.sku.rawKey]; let target = forced ? catalog.find(x => x.fullKey === forced) : null;
       const exact = catalog.find(x => x.fullKey === sale.sku.fullKey); const candidates = catalog.map(x => ({ sku: x, score: candidateScore(sale.sku, x) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score);

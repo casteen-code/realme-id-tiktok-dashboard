@@ -17,7 +17,7 @@
         <label class="drop" data-slot="mks"><b>马卡萨仓库存</b><small>WMS 库存表</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
         <label class="drop" data-slot="pnk"><b>坤甸仓库存</b><small>WMS 库存表</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
         <label class="drop" data-slot="bali"><b>巴厘岛仓库存</b><small>WMS 库存表</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
-        <label class="drop" data-slot="shopee"><b>Shopee 分店销量</b><small>优先上传店铺 × SKU 文件</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
+        <label class="drop" data-slot="shopee"><b>Shopee 分店销量</b><small>支持 SKU + 1店至5店横向表，或店铺、SKU、销量明细表</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
         <label class="drop" data-slot="tiktok"><b>TikTok Shop 销量</b><small>机型、内存、颜色、净成交数量</small><small class="file">尚未选择</small><input type="file" accept=".xlsx,.xls,.csv"></label>
       </div>
       <div class="actions" style="margin-top:15px"><button class="btn primary" id="calculate" disabled>确认对账并计算</button><button class="btn" id="exportRules">备份规则</button><label class="btn">恢复规则<input id="importRules" type="file" accept=".json"></label><span class="hint">先上传后会自动预览字段；发现来源不一致时，必须确认后才能计算。</span></div><div class="notice" id="notice"></div>
@@ -36,7 +36,8 @@
   <dialog id="rulesDialog"><div class="modal"><div class="head"><div><h2>SKU 规则中心</h2><p class="hint">规则保存在这台设备；备份可带到另一台电脑。删掉规则后，下次计算会恢复自动识别。</p></div><button class="btn" data-close="rulesDialog">关闭</button></div><div class="modal-scroll"><h3>型号别名</h3><p class="hint">例如：`realme C100i` → `C100i`；`16pro+` → `16 Pro+`。</p><div class="rule-form"><input id="modelAliasRaw" type="text" placeholder="报表中的写法"><input id="modelAliasCanonical" type="text" placeholder="统一后的型号"><button class="btn primary" id="addModelAlias">保存</button></div><div class="rule-list" id="modelRules"></div><div class="divider"></div><h3>颜色别名</h3><p class="hint">例如：`Master Grey` → `Master Gray`。</p><div class="rule-form"><input id="colorAliasRaw" type="text" placeholder="报表中的颜色"><input id="colorAliasCanonical" type="text" placeholder="统一后的颜色"><button class="btn primary" id="addColorAlias">保存</button></div><div class="rule-list" id="colorRules"></div><div class="divider"></div><h3>库存 SKU 修正</h3><p class="hint">这里显示你在“库存 SKU 识别自检”中修正过的内容，可随时撤销。</p><div class="rule-list" id="stockOverrides"></div><div class="divider"></div><h3>手动 SKU 对应</h3><p class="hint">这里显示你在异常区确认过的对应关系，可随时撤销。</p><div class="rule-list" id="manualRules"></div></div></div></dialog>
   <dialog id="historyDialog"><div class="modal"><div class="head"><div><h2>历史计算记录</h2><p class="hint">默认保留最近 30 次；保存的是计算结果和对账信息，不保存原始 Excel 文件。</p></div><button class="btn" data-close="historyDialog">关闭</button></div><div class="history-list" id="historyList"></div></div></dialog>
   <script src="vendor/xlsx.full.min.js"></script>
-  <script src="sku-core.js"></script>
-  <script src="inventory-turnover.js"></script>
+  <script src="sku-core.js?v=3.4.2"></script>
+  <script src="inventory-turnover.js?v=3.4.2"></script>
 </body>
 </html>
+

@@ -12,8 +12,9 @@
     },
     manual: {}, stockOverrides: {}
   };
-  const COLOR_PHRASES = ['titanium silver','titanium black','lavender purple','moss green','ivory gold','white swan','forest owl','swan black','kingfisher blue','violet parrot','parrot purple','peacock green','phantom navy','rally white','glacier blue','storm black','dusk gray','dawn purple','master gray','master grey','master purple','master gold','pebble grey','pebble gray','orchid purple','air white','air black','pulse purple','glory beige','deepblue tides','deepblue tide','volt black','aurora purple','racing green','metallic grey','starlight green','comet grey','lightning gold','golden coast','victory purple','glory white','endurance brown','pine green','cloud white','titan grey','brown','black','white','blue','purple','green','gray','grey','gold','silver','red','orange'];
+  const COLOR_PHRASES = ['mystic grey','mystic gray','titanium silver','titanium black','lavender purple','moss green','ivory gold','white swan','forest owl','swan black','kingfisher blue','violet parrot','parrot purple','peacock green','phantom navy','rally white','glacier blue','storm black','dusk gray','dawn purple','master gray','master grey','master purple','master gold','pebble grey','pebble gray','orchid purple','air white','air black','pulse purple','glory beige','deepblue tides','deepblue tide','volt black','aurora purple','racing green','metallic grey','starlight green','comet grey','lightning gold','golden coast','victory purple','glory white','endurance brown','pine green','cloud white','titan grey','brown','black','white','blue','purple','green','gray','grey','gold','silver','red','orange'];
 
+  function isGiftSku(value) { return String(value ?? '').normalize('NFKC').trim().toLowerCase() === 'zp888'; }
   function clean(value) { return String(value ?? '').replace(/\[.*?\]|\(.*?\)|（.*?）/g, ' ').replace(/hadiah\s*gratis|free\s*gift|promo/ig, ' ').replace(/\s+/g, ' ').trim(); }
   function norm(value) { return clean(value).toLowerCase().replace(/[＿_]/g, ' ').replace(/[|,，;；]/g, ' ').replace(/\s+/g, ' ').trim(); }
   function key(value) { return norm(value).replace(/\+/g, ' plus ').replace(/[^a-z0-9]/g, ''); }
@@ -53,10 +54,11 @@
     const rawKey = key(label), found = modelInfo(label, rules), model = clean(override?.model || found.value) || '未识别型号';
     const mem = memory(override?.memory || parts.memory || label) || clean(override?.memory || '');
     const col = color(override?.color || parts.color || label, rules) || clean(override?.color || '');
-    return { raw: clean(label), rawKey, model, modelKey: key(model), memory: mem, color: col, fullKey: [key(model), key(mem), key(col)].join('|'), baseKey: [key(model), key(mem)].join('|'), recognizedModel: Boolean(override?.model || found.recognized) };
+    return { raw: clean(label), rawKey, model, modelKey: key(model), memory: mem, color: col, fullKey: [key(model), key(mem), key(col)].join('|'), baseKey: [key(model), key(mem)].join('|'), recognizedModel: Boolean(override?.model || found.recognized), excluded: isGiftSku(parts.model || raw) };
   }
   function isPhoneModel(name) { return /^(?:16(?:\s+Pro\+?)?|Note\s*\d|C\d|P\d|Narzo\s*\d)/i.test(name); }
   function stockSkuProblems(sku) {
+    if (sku.excluded || isGiftSku(sku.raw)) return [];
     const problems = [];
     if (!sku.recognizedModel) problems.push('未识别型号');
     if (sku.recognizedModel && isPhoneModel(sku.model) && !sku.memory) problems.push('未识别内存');
@@ -65,6 +67,7 @@
   }
   function similarity(a, b) { if (!a || !b) return 0; if (a === b) return 1; const aa = new Set(a), bb = new Set(b), common = [...aa].filter(x => bb.has(x)).length; return common / Math.max(aa.size, bb.size); }
   function candidateScore(sale, stock) {
+    if (sale.excluded || stock.excluded || isGiftSku(sale.raw) || isGiftSku(stock.raw)) return 0;
     if (sale.modelKey !== stock.modelKey) return 0;
     let score = 60;
     if (sale.memory && stock.memory) score += sale.memory === stock.memory ? 25 : 0; else score += 8;
@@ -72,7 +75,7 @@
     return score;
   }
 
-  const api = { DEFAULT_RULES, clean, norm, key, memory, modelInfo, color, parseSKU, isPhoneModel, stockSkuProblems, similarity, candidateScore };
+  const api = { DEFAULT_RULES, clean, norm, key, memory, modelInfo, color, parseSKU, isGiftSku, isPhoneModel, stockSkuProblems, similarity, candidateScore };
   if (typeof window !== 'undefined') window.RealmeSkuCore = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
