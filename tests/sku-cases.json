@@ -55,7 +55,8 @@
   },
   {
     "name": "Unknown stock code must self-check",
-    "stock": "zp888",
+    "stock": "unknown-code",
     "expectProblems": ["未识别型号"]
   }
 ]
+

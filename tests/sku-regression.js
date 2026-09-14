@@ -24,3 +24,5 @@ const families = ['realme 16 5G 256GB 8GB Air White', 'realme 16 Pro 5G 256GB 12
 assert.equal(new Set(families).size, 3, '16、16 Pro、16 Pro+ must stay separate models');
 
 console.log(`SKU regression passed: ${passed} cases + model-family separation`);
+
+require('./import-regression.js');
