@@ -17,8 +17,8 @@ const document = {
 const source = fs.readFileSync(path.join(__dirname, '../inventory-turnover.js'), 'utf8');
 const marker = '\n  init();\n';
 assert.ok(source.includes(marker));
-const sandbox = { window: { RealmeSkuCore: core }, document, structuredClone };
-vm.runInNewContext(source.replace(marker, '\n  globalThis.importTest = { app, sheetInfo, chooseSheet, shopeeMode, rawSummary, schemaText, salesFromInputs, stocksFromInputs, reconcileShopee, renderPreview, renderAudit, updateCalculateButton, groupRows };\n'), sandbox);
+const sandbox = { window: { RealmeSkuCore: core }, document, structuredClone, crypto: require('node:crypto').webcrypto };
+vm.runInNewContext(source.replace(marker, '\n  globalThis.importTest = { app, sheetInfo, chooseSheet, shopeeMode, rawSummary, schemaText, salesFromInputs, stocksFromInputs, reconcileShopee, renderPreview, renderAudit, updateCalculateButton, groupRows, matchSales, rememberMapping, saveIssueMapping, renderIssues, calculate };\n'), sandbox);
 const api = sandbox.importTest;
 const plain = x => JSON.parse(JSON.stringify(x));
 const sum = rows => rows.reduce((n, r) => n + r.qty, 0);
@@ -123,4 +123,4 @@ assert.equal(core.parseSKU('realme Buds T200 RMA2410 Mystic Grey UN').color, 'My
 assert.equal(core.parseSKU('realme TechLife Buds').color, '', 'missing color must not be invented');
 console.log('Import regression passed: wide/detail sheets, totals, store mapping, gift exclusion, source selection and zero sales');
 
-module.exports = { api, install, plain, sum };
+module.exports = { api, install, plain, sum, nodes };

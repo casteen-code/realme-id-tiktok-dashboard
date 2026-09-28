@@ -6,7 +6,7 @@
     { key: 'shop1', label: '1店' }, { key: 'shop2', label: '2店' }, { key: 'shop3', label: '3店' },
     { key: 'shop4', label: '4店' }, { key: 'shop5', label: '5店' }, { key: 'tiktok', label: 'TikTok' }
   ];
-  const APP_VERSION = 'v3.4.2';
+  const APP_VERSION = 'v3.4.3';
   const SLOT = {
     mks: { label: '马卡萨仓库存', type: 'stock', warehouse: 'mks' },
     pnk: { label: '坤甸仓库存', type: 'stock', warehouse: 'pnk' },
@@ -16,7 +16,7 @@
   };
   const SKU = window.RealmeSkuCore;
   if (!SKU) throw new Error('SKU 识别组件没有加载，请重新打开网页。');
-  const { DEFAULT_RULES, clean, norm, key, memory, stockSkuProblems, candidateScore, isGiftSku } = SKU;
+  const { DEFAULT_RULES, clean, norm, key, memory, stockSkuProblems, candidateScore, isGiftSku, isPhoneModel, resolveMatch } = SKU;
   const $ = (id) => document.getElementById(id);
   const app = { profiles: {}, rules: structuredClone(DEFAULT_RULES), sourceChoice: null, sourceConfirmed: false, view: 'model', scope: 'all', sort: 'turnAsc', result: null, historySnapshot: null, db: null };
 
@@ -63,14 +63,20 @@
 
   function header(value) { return norm(String(value ?? '').normalize('NFKC')).replace(/[ _-]/g, ''); }
   function headerScore(row, slot) {
-    const text = row.map(header).join(' ');
-    const has = (...names) => names.some(n => text.includes(n));
-    if (slot === 'stock') return (has('商家编码','sellersku','sku','productname','商品') ? 8 : 0) + (has('oms可支配库存','库存','stock','available','quantity','jumlah') ? 8 : 0);
-    if (slot === 'tiktok') return (has('机型','model','型号') ? 7 : 0) + (has('内存版本','memory','ram') ? 4 : 0) + (has('颜色','color','warna') ? 3 : 0) + (has('净成交数量','销量','quantity','sold','sales') ? 7 : 0);
-    return (has('sku','商品') ? 7 : 0) + (has('店铺','shop','store','namatoko') ? 6 : 0) + (has('销量','quantity','sold','sales','jumlah') ? 7 : 0) + (has('1店','2店','3店','4店','5店') ? 4 : 0);
+    const m = detectMapping(row.map(x => String(x ?? '')), slot);
+    if (slot === 'stock') return (m.sku ? 8 : 0) + (m.qty ? 8 : 0);
+    if (slot === 'tiktok') return (m.model ? 7 : 0) + (m.memory ? 4 : 0) + (m.color ? 3 : 0) + (m.qty ? 7 : 0);
+    return (m.sku ? 7 : 0) + (m.shop ? 6 : 0) + (m.qty ? 7 : 0) + (m.stores.length ? 4 : 0);
   }
   function uniqueHeaders(row) { const seen = {}; return row.map((v, i) => { const base = String(v || `列${i + 1}`).trim() || `列${i + 1}`; seen[base] = (seen[base] || 0) + 1; return seen[base] === 1 ? base : `${base} ${seen[base]}`; }); }
-  function field(headers, names) { return headers.find(h => names.includes(header(h))) || headers.find(h => names.some(n => header(h).includes(n))) || ''; }
+  function field(headers, names) { const candidates = headers.filter(h => h.length <= 40); return candidates.find(h => names.includes(header(h))) || candidates.find(h => names.some(n => header(h).includes(n))) || ''; }
+  function salesQuantityField(headers) {
+    const names = ['净成交数量','净成交台数','净成交','净销量','有效销量','净销售数量','netsoldquantity','netquantity','netunitssold','周销量','销量','销售数量','salesvolume','quantitysold','soldquantity','unitssold','totalsold','orderquantity','quantity','qty','sold','sales','jumlah','订单量','数量'];
+    const candidates = headers.filter(h => h.length <= 40 && !/占比|比例|率|百分|金额|单价|收入|毛利|结算|percent|share|ratio|rate|amount|price|revenue|profit/i.test(h));
+    const normalized = h => header(h).replace(/\([^)]*\)/g, '').replace(/(?:台|件|pcs|units)$/i, '');
+    for (const name of names) { const found = candidates.find(h => normalized(h) === name); if (found) return found; }
+    return field(candidates, names);
+  }
   function value(record, column) { return column ? record[column] : ''; }
   function sheetInfo(name, matrix, kind) {
     let hi = 0, best = -1;
@@ -82,7 +88,7 @@
   function detectMapping(headers, kind) {
     const sku = field(headers, ['商家编码','sellersku','variationsku','productsku','sku','商品名称','产品名称','商品sku','商品编码','itemname','productname','producttitle','namaproduk','namaprodukdanvariasi','description','title','variation','variasi']);
     const qtyStock = field(headers, ['oms可支配库存','可用库存','可用数量','availablequantity','available','availablestock','actualquantity','stocktersedia','stock','库存数量','库存','inventory','quantity','qty','jumlah','onhand']);
-    const qtySales = field(headers, ['净成交数量','周销量','销量','销售数量','salesvolume','quantitysold','soldquantity','unitssold','totalsold','orderquantity','quantity','qty','sold','sales','jumlah','订单量','数量']);
+    const qtySales = salesQuantityField(headers);
     const model = field(headers, ['机型','model','型号','productmodel']);
     const memory = field(headers, ['内存版本','memoryversion','memory','ramrom','storage','规格','version']);
     const color = field(headers, ['颜色','color','warna']);
@@ -94,6 +100,10 @@
     const kind = SLOT[slot].type;
     const sorted = [...sheets].sort((a, b) => (b.score * 1000 + b.records.length) - (a.score * 1000 + a.records.length));
     if (kind === 'shopee') return sorted.find(s => shopeeMode(s.mapping)) || sorted[0];
+    if (kind === 'tiktok') {
+      const valid = sorted.filter(s => s.mapping.model && s.mapping.qty);
+      return valid.find(s => /sku.*(?:汇总|summary)|(?:汇总|summary).*sku/i.test(s.name)) || valid[0] || sorted[0];
+    }
     return sorted[0];
   }
   async function readFile(slot, file) {
@@ -221,28 +231,47 @@
     for (const r of rows) out.push({ sku: parseSKU(r.sku), warehouse: warehouse(r.shop), store: storeKey(r.shop), qty: r.qty, source: `Shopee ${r.shop}` });
     return out;
   }
+  function matchingRuleKey(sku) { return sku.recognizedModel && (!isPhoneModel(sku.model) || sku.memory) ? `sku:${sku.fullKey}` : sku.rawKey; }
+  function rememberMapping(issue, target) {
+    // One removable rule per semantic SKU, not one rule per repeated order.
+    for (const raw of issue.rawKeys || [issue.sku.rawKey]) delete app.rules.manual[raw];
+    app.rules.manual[matchingRuleKey(issue.sku)] = target;
+  }
   function matchSales(stocks, sales) {
-    const catalog = [...new Map(stocks.filter(x => !x.sku.excluded && !stockSkuProblems(x.sku).length).map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = [];
+    const catalog = [...new Map(stocks.filter(x => !x.sku.excluded && !stockSkuProblems(x.sku).length).map(x => [x.sku.fullKey, x.sku])).values()]; const manual = app.rules.manual || {}; const issues = new Map();
     for (const sale of sales) {
-      const forced = manual[sale.sku.rawKey]; let target = forced ? catalog.find(x => x.fullKey === forced) : null;
-      const exact = catalog.find(x => x.fullKey === sale.sku.fullKey); const candidates = catalog.map(x => ({ sku: x, score: candidateScore(sale.sku, x) })).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
-      if (!target && exact) target = exact;
-      if (!target && candidates[0] && candidates[0].score >= 98 && (!candidates[1] || candidates[0].score - candidates[1].score >= 12)) target = candidates[0].sku;
-      sale.targetKey = target?.fullKey || ''; sale.matchType = forced ? '手动规则' : exact ? '完全一致' : target ? '高置信度' : '待确认'; sale.candidates = candidates.slice(0, 8);
-      if (!target) issues.push(sale);
+      const forced = manual[matchingRuleKey(sale.sku)] || manual[sale.sku.rawKey];
+      const match = resolveMatch(sale.sku, catalog, forced);
+      const candidates = catalog.map(x => ({ sku: x, score: candidateScore(sale.sku, x) })).filter(x => x.score > 0).sort((a,b) => b.score-a.score);
+      sale.targetKey = match.target?.fullKey || ''; sale.matchType = match.type || '待确认'; sale.matchReason = match.reason; sale.candidates = candidates.slice(0, 8);
+      if (!match.target) {
+        const id = matchingRuleKey(sale.sku);
+        if (!issues.has(id)) issues.set(id, { ...sale, qty: 0, rowCount: 0, rawKeys: [], sources: [], reason: match.reason });
+        const issue = issues.get(id); issue.qty += sale.qty; issue.rowCount++;
+        if (!issue.rawKeys.includes(sale.sku.rawKey)) issue.rawKeys.push(sale.sku.rawKey);
+        if (!issue.sources.includes(sale.source)) issue.sources.push(sale.source);
+        issue.source = issue.sources.join('、');
+      }
     }
-    return issues;
+    return [...issues.values()];
+  }
+  async function saveIssueMapping(index, target) {
+    const issue = app.result?.issues[index];
+    if (!issue || !target) return show('请先选择一个库存 SKU。', 'error');
+    rememberMapping(issue, target);
+    await saveRules(); calculate(true);
+    show(`已记住「${issue.sku.raw}」的对应关系，共处理 ${issue.rowCount || 1} 条明细；下次导入自动沿用。`, 'ok');
   }
   function groupRows(stocks, sales, view, scope) {
     const rows = new Map(); const add = (id, base) => { if (!rows.has(id)) rows.set(id, { ...base, stock: 0, sales: 0, byStore: emptyStoreSales(), unmatched: false }); return rows.get(id); };
     stocks.filter(x => scope === 'all' || x.warehouse === scope).forEach(x => { const id = view === 'model' ? x.sku.modelKey : x.sku.fullKey; const row = add(id, { name: x.sku.model, memory: x.sku.memory, color: x.sku.color }); row.stock += x.qty; });
-    sales.filter(x => scope === 'all' ? true : x.warehouse === scope).forEach(x => { const id = view === 'model' ? x.sku.modelKey : (x.targetKey || `unmatched:${x.sku.rawKey}`); const target = x.targetKey ? stocks.find(y => y.sku.fullKey === x.targetKey)?.sku : null; const row = add(id, { name: target?.model || x.sku.model, memory: target?.memory || x.sku.memory, color: target?.color || x.sku.color }); row.sales += x.qty; if (x.store && Object.hasOwn(row.byStore, x.store)) row.byStore[x.store] += x.qty; if (!x.targetKey) row.unmatched = true; });
+    sales.filter(x => scope === 'all' ? true : x.warehouse === scope).forEach(x => { const target = x.targetKey ? stocks.find(y => y.sku.fullKey === x.targetKey)?.sku : null; const id = view === 'model' ? (target?.modelKey || x.sku.modelKey) : (x.targetKey || `unmatched:${x.sku.recognizedModel ? x.sku.fullKey : x.sku.rawKey}`); const row = add(id, { name: target?.model || x.sku.model, memory: target?.memory || x.sku.memory, color: target?.color || x.sku.color }); row.sales += x.qty; if (x.store && Object.hasOwn(row.byStore, x.store)) row.byStore[x.store] += x.qty; if (!x.targetKey) row.unmatched = true; });
     return [...rows.values()].map(x => ({ ...x, turnover: x.sales ? x.stock / (x.sales / 7) : null }));
   }
   function sorted(rows) { const sorters = { turnAsc: (a,b) => (a.turnover ?? Infinity) - (b.turnover ?? Infinity), turnDesc: (a,b) => (b.turnover ?? -Infinity) - (a.turnover ?? -Infinity), stockDesc: (a,b) => b.stock - a.stock, salesDesc: (a,b) => b.sales - a.sales, nameAsc: (a,b) => a.name.localeCompare(b.name) }; return [...rows].sort(sorters[app.sort]); }
   function calculate(save = true) {
     const stocks = stocksFromInputs(), sales = salesFromInputs(), issues = matchSales(stocks, sales), stockIssues = stocks.filter(x => stockSkuProblems(x.sku).length); const modelRows = groupRows(stocks, sales, 'model', 'all'), skuRows = groupRows(stocks, sales, 'sku', 'all');
-    app.historySnapshot = null; app.result = { stocks, sales, issues, stockIssues, modelRows, skuRows, createdAt: Date.now(), audit: auditSnapshot() }; $('report').classList.remove('hidden'); renderReport(); if (save) saveSnapshot(); const hasIssues = issues.length || stockIssues.length; setStatus(`已完成：${stocks.length} 条库存、${sales.length} 条销量`, hasIssues ? 'warn' : 'normal'); show(hasIssues ? `已计算。库存有 ${stockIssues.length} 条需要补全识别；销售有 ${issues.length} 条需要确认。` : '已计算，库存和销售 SKU 均已匹配。', hasIssues ? 'warn' : 'ok');
+    app.historySnapshot = null; app.result = { stocks, sales, issues, stockIssues, modelRows, skuRows, createdAt: Date.now(), audit: auditSnapshot() }; $('report').classList.remove('hidden'); renderReport(); if (save) saveSnapshot(); const hasIssues = issues.length || stockIssues.length; setStatus(`已完成：${stocks.length} 条库存、${sales.length} 条销量`, hasIssues ? 'warn' : 'normal'); show(hasIssues ? `已计算。库存有 ${stockIssues.length} 条需要补全识别；销售仅剩 ${issues.length} 种 SKU 需要确认（重复明细已合并）。` : '已计算，库存和销售 SKU 均已匹配。', hasIssues ? 'warn' : 'ok');
   }
   function auditSnapshot() { const rec = reconcileShopee(); return { stock: ['mks','pnk','bali'].map(x => ({ warehouse: WAREHOUSES[x], ...rawSummary(x) })), tiktok: rawSummary('tiktok'), shopee: rec.hasBoth ? { detail: rec.detailRows.reduce((a,x) => a+x.qty,0), pivot: rec.pivotRows.reduce((a,x) => a+x.qty,0), choice: app.sourceChoice, differences: rec.differences } : { chosen: rawSummary('shopee').quantity } }; }
   function renderReport() {
@@ -266,14 +295,23 @@
     });
   }
   function renderIssues() {
-    const issues = app.result?.issues || []; $('issueCount').textContent = `${issues.length} 条待确认`;
+    const issues = app.result?.issues || []; $('issueCount').textContent = `${issues.length} 种 SKU 待确认`;
+    const matched = [...new Map((app.result?.sales || []).filter(x => x.targetKey).map(x => [`${matchingRuleKey(x.sku)}:${x.targetKey}`, x])).values()];
+    const remembered = matched.filter(x => x.matchType === '已记住的对应').length;
+    $('matchSummary').textContent = `自动匹配 ${matched.length - remembered} 种 · 沿用已记住对应 ${remembered} 种 · 仍需确认 ${issues.length} 种。重复订单不需要逐条处理。`;
+    $('matchDetails').hidden = !matched.length;
+    $('matchDetailsTitle').textContent = `查看已匹配的对应及原因（${matched.length} 种）`;
+    $('matchDetailsList').innerHTML = matched.map(x => {
+      const target = app.result.stocks.find(s => s.sku.fullKey === x.targetKey)?.sku;
+      return `<div class="rule-row"><div><b>${esc(x.sku.raw)}</b><div class="row-meta">→ ${esc(target ? [target.model, target.memory, target.color].filter(Boolean).join(' | ') : x.targetKey)}</div><div class="row-meta">${esc(x.matchType)}：${esc(x.matchReason)}</div></div></div>`;
+    }).join('');
     $('issues').innerHTML = issues.length ? issues.map((x, index) => {
       const checkedStocks = app.result.stocks.filter(s => !stockSkuProblems(s.sku).length);
       const all = [...x.candidates, ...[...new Map(checkedStocks.map(s => [s.sku.fullKey, { sku: s.sku, score: 0 }])).values()].filter(z => !x.candidates.some(c => c.sku.fullKey === z.sku.fullKey))];
-      const opts = all.map(c => `<option value="${esc(c.sku.fullKey)}">${esc(c.sku.raw)}${c.score ? `（匹配度 ${c.score}%）` : ''}</option>`).join('');
-      return `<div class="issue"><strong>未自动匹配：${esc(x.sku.raw)}</strong><div class="raw">来源：${esc(x.source)}；周销量 ${x.qty}。${x.candidates[0] ? `最佳候选匹配度 ${x.candidates[0].score}%` : '没有同型号候选。'}</div><div class="candidate"><select id="candidate-${index}"><option value="">选择对应的库存 SKU…</option>${opts}</select><button class="btn" data-map-index="${index}">保存对应</button></div></div>`;
+      const opts = all.map(c => `<option value="${esc(c.sku.fullKey)}">${esc(c.sku.raw)}</option>`).join('');
+      return `<div class="issue"><strong>需确认：${esc(x.sku.raw)}</strong><div class="raw">来源：${esc(x.source)}；共 ${x.rowCount || 1} 条明细，周销量 ${x.qty}。</div><div class="raw">${esc(x.reason || '无法唯一对应库存 SKU')}。</div><div class="candidate"><select id="candidate-${index}"><option value="">选择对应的库存 SKU…</option>${opts}</select><button class="btn" data-map-index="${index}">保存并记住</button></div></div>`;
     }).join('') : '<div class="issue" style="border-color:#a8e1c0;background:var(--green-soft)"><strong style="color:var(--green)">没有待确认 SKU</strong><div class="raw">销售 SKU 均已自动或手动对应库存。</div></div>';
-    document.querySelectorAll('[data-map-index]').forEach(btn => btn.onclick = async () => { const i = +btn.dataset.mapIndex, sale = app.result.issues[i], target = $(`candidate-${i}`).value; if (!target) return show('请先选择一个库存 SKU。', 'error'); app.rules.manual[sale.sku.rawKey] = target; await saveRules(); calculate(true); show(`已保存「${sale.sku.raw}」的对应关系。其他异常会继续保留。`, 'ok'); });
+    document.querySelectorAll('[data-map-index]').forEach(btn => btn.onclick = () => saveIssueMapping(+btn.dataset.mapIndex, $(`candidate-${btn.dataset.mapIndex}`).value));
   }
   function currentRows() { return app.historySnapshot ? sorted(app.view === 'model' ? app.historySnapshot.modelRows : app.historySnapshot.skuRows) : sorted(groupRows(app.result.stocks, app.result.sales, app.view, app.scope)); }
   function exportCsv() { if (!app.result) return; const headers = app.view === 'model' ? ['型号','可用库存',...STORE_COLUMNS.map(x => x.label),'周销量','日均销量','周转天数','匹配状态'] : ['型号','内存','颜色','可用库存',...STORE_COLUMNS.map(x => x.label),'周销量','日均销量','周转天数','匹配状态']; const data = currentRows().map(r => { const [label] = matchStatus(r), stores = STORE_COLUMNS.map(x => storeSales(r, x.key) ?? ''); const common = [r.stock,...stores,r.sales,(r.sales / 7).toFixed(2),r.turnover == null ? '无销量' : r.turnover.toFixed(1),label]; return app.view === 'model' ? [r.name,...common] : [r.name,r.memory,r.color,...common]; }); const csv = [headers,...data].map(row => row.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\r\n'); download(`周转_${app.view === 'model' ? '型号' : '完整SKU'}_${new Date().toISOString().slice(0,10)}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8'); }
@@ -293,7 +331,8 @@
   function snapshot() { const r = app.result; return { id: crypto.randomUUID(), createdAt: Date.now(), title: new Date().toLocaleString('zh-CN',{hour12:false}), metrics: { stock: r.stocks.reduce((a,x)=>a+x.qty,0), sales: r.sales.reduce((a,x)=>a+x.qty,0), issues: r.issues.length, stockIssues: r.stockIssues?.length || 0 }, audit: r.audit, modelRows: r.modelRows, skuRows: r.skuRows, issues: r.issues.map(x => ({ sku: x.sku, qty: x.qty, source: x.source })) }; }
   async function saveSnapshot() { await app.db.saveHistory(snapshot()); }
   async function showHistory() { const list = await app.db.history(); $('historyList').innerHTML = list.length ? list.map(x => `<div class="history-row"><div><b>${esc(x.title)}</b><div class="row-meta">库存 ${x.metrics.stock.toLocaleString()} · 销量 ${x.metrics.sales.toLocaleString()} · 库存待补全 ${x.metrics.stockIssues || 0} · 销售待确认 ${x.metrics.issues}</div></div><div class="actions"><button class="btn tiny" data-history-open="${x.id}">查看</button><button class="btn danger tiny" data-history-delete="${x.id}">删除</button></div></div>`).join('') : '<div class="empty">暂无历史计算记录。</div>'; $('historyDialog').showModal(); document.querySelectorAll('[data-history-open]').forEach(btn => btn.onclick = () => { const x = list.find(y => y.id === btn.dataset.historyOpen); app.historySnapshot = x; app.scope = 'all'; document.querySelectorAll('[name=scope]').forEach(node => { node.checked = node.value === 'all'; }); app.result = { stocks: [], sales: [], issues: x.issues || [], stockIssues: [], modelRows: x.modelRows || [], skuRows: x.skuRows || [], audit: x.audit }; $('historyDialog').close(); $('report').classList.remove('hidden'); renderHistorical(x); }); document.querySelectorAll('[data-history-delete]').forEach(btn => btn.onclick = async () => { await app.db.deleteHistory(btn.dataset.historyDelete); showHistory(); }); }
-  function renderHistorical(x) { const rows = sorted(app.view === 'model' ? x.modelRows : x.skuRows), hasStoreDetail = rows.some(r => r.byStore); $('metrics').innerHTML = `<div class="metric"><small>历史可用库存</small><div class="n">${x.metrics.stock.toLocaleString()}</div></div><div class="metric"><small>历史周销量</small><div class="n">${x.metrics.sales.toLocaleString()}</div></div><div class="metric"><small>库存待补全</small><div class="n">${x.metrics.stockIssues || 0}</div></div><div class="metric"><small>销售待确认 SKU</small><div class="n">${x.metrics.issues}</div></div><div class="metric"><small>记录时间</small><div class="n" style="font-size:16px">${esc(x.title)}</div></div>`; $('reportHint').textContent = hasStoreDetail ? '历史快照为只读结果，可切换两张表、排序或导出；仓库范围固定为全部仓库。' : '该历史记录生成于 v3.4.0 之前，不含分店销量明细；重新上传文件计算后可查看。'; $('thead').innerHTML = `<tr><th>型号 / SKU</th><th>可用库存</th>${STORE_COLUMNS.map(x => `<th>${x.label}</th>`).join('')}<th>周销量</th><th>日均销量</th><th>周转天数</th><th>匹配状态</th></tr>`; $('tbody').innerHTML = rows.map(r => { const [label, cls] = matchStatus(r); return `<tr><td><span class="name">${esc(r.name)}</span><span class="detail">${esc([r.memory,r.color].filter(Boolean).join(' · '))}</span></td><td>${r.stock}</td>${STORE_COLUMNS.map(x => `<td>${storeSales(r, x.key) == null ? '—' : storeSales(r, x.key)}</td>`).join('')}<td>${r.sales}</td><td>${(r.sales / 7).toFixed(2)}</td><td>${r.turnover == null ? '无销量' : r.turnover.toFixed(1)+' 天'}</td><td><span class="tag ${cls}">${label}</span></td></tr>`; }).join(''); $('stockIssueCount').textContent = '历史快照'; $('stockIssues').innerHTML = '<div class="issue"><strong>这是历史快照</strong><div class="raw">历史记录只保存异常数量，不保存可编辑的库存 SKU 明细。</div></div>'; $('issues').innerHTML = '<div class="issue"><strong>这是历史快照</strong><div class="raw">历史异常明细不会改变现有规则。重新上传本周文件后可继续处理。</div></div>'; }
+  function renderHistorical(x) {
+    $('matchDetails').hidden = true; $('matchSummary').textContent = '历史快照保留当时结果；新版识别需重新上传文件计算。'; $('issueCount').textContent = '历史快照'; const rows = sorted(app.view === 'model' ? x.modelRows : x.skuRows), hasStoreDetail = rows.some(r => r.byStore); $('metrics').innerHTML = `<div class="metric"><small>历史可用库存</small><div class="n">${x.metrics.stock.toLocaleString()}</div></div><div class="metric"><small>历史周销量</small><div class="n">${x.metrics.sales.toLocaleString()}</div></div><div class="metric"><small>库存待补全</small><div class="n">${x.metrics.stockIssues || 0}</div></div><div class="metric"><small>销售待确认 SKU</small><div class="n">${x.metrics.issues}</div></div><div class="metric"><small>记录时间</small><div class="n" style="font-size:16px">${esc(x.title)}</div></div>`; $('reportHint').textContent = hasStoreDetail ? '历史快照为只读结果，可切换两张表、排序或导出；仓库范围固定为全部仓库。' : '该历史记录生成于 v3.4.0 之前，不含分店销量明细；重新上传文件计算后可查看。'; $('thead').innerHTML = `<tr><th>型号 / SKU</th><th>可用库存</th>${STORE_COLUMNS.map(x => `<th>${x.label}</th>`).join('')}<th>周销量</th><th>日均销量</th><th>周转天数</th><th>匹配状态</th></tr>`; $('tbody').innerHTML = rows.map(r => { const [label, cls] = matchStatus(r); return `<tr><td><span class="name">${esc(r.name)}</span><span class="detail">${esc([r.memory,r.color].filter(Boolean).join(' · '))}</span></td><td>${r.stock}</td>${STORE_COLUMNS.map(x => `<td>${storeSales(r, x.key) == null ? '—' : storeSales(r, x.key)}</td>`).join('')}<td>${r.sales}</td><td>${(r.sales / 7).toFixed(2)}</td><td>${r.turnover == null ? '无销量' : r.turnover.toFixed(1)+' 天'}</td><td><span class="tag ${cls}">${label}</span></td></tr>`; }).join(''); $('stockIssueCount').textContent = '历史快照'; $('stockIssues').innerHTML = '<div class="issue"><strong>这是历史快照</strong><div class="raw">历史记录只保存异常数量，不保存可编辑的库存 SKU 明细。</div></div>'; $('issues').innerHTML = '<div class="issue"><strong>这是历史快照</strong><div class="raw">历史异常明细不会改变现有规则。重新上传本周文件后可继续处理。</div></div>'; }
 
   function bindUpload() {
     document.querySelectorAll('.drop').forEach(box => { const slot = box.dataset.slot, input = box.querySelector('input'); const use = async file => { if (!file) return; box.classList.add('loaded'); box.querySelector('.file').textContent = file.name; try { await readFile(slot, file); show(`已读取 ${SLOT[slot].label}：请在“导入预览”确认工作表和控制数。`, 'ok'); } catch (e) { box.classList.remove('loaded'); show(`${SLOT[slot].label} 读取失败：${e.message}`, 'error'); } }; input.onchange = () => use(input.files[0]); ['dragenter','dragover'].forEach(e => box.addEventListener(e, x => { x.preventDefault(); box.classList.add('drag'); })); ['dragleave','drop'].forEach(e => box.addEventListener(e, x => { x.preventDefault(); box.classList.remove('drag'); })); box.addEventListener('drop', e => use(e.dataTransfer.files[0])); });

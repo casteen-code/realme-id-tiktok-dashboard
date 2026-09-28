@@ -26,3 +26,4 @@ assert.equal(new Set(families).size, 3, '16、16 Pro、16 Pro+ must stay separat
 console.log(`SKU regression passed: ${passed} cases + model-family separation`);
 
 require('./import-regression.js');
+require('./matching-regression.js');
