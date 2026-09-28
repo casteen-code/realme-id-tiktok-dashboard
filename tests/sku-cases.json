@@ -55,7 +55,73 @@
   },
   {
     "name": "Unknown stock code must self-check",
-    "stock": "zp888",
+    "stock": "unknown-code",
     "expectProblems": ["未识别型号"]
+  },
+  {
+    "name": "Note 80 model number must not become 8064GB",
+    "stock": "realme Note 80 64GB 4GB Glacier Blue",
+    "sales": {"model":"Note80", "memory":"4/64GB", "color":"Glacier Blue"},
+    "expected": {"model":"Note 80", "memory":"4GB/64GB", "color":"Glacier Blue"}
+  },
+  {
+    "name": "C85 model number must not become 5128GB",
+    "stock": "realme C85 128GB 6GB Kingfisher Blue",
+    "sales": {"model":"C85", "memory":"6/128", "color":"Kingfisher Blue"},
+    "expected": {"model":"C85", "memory":"6GB/128GB", "color":"Kingfisher Blue"}
+  },
+  {
+    "name": "C85 model number must not become 5256GB",
+    "stock": "realme C85 256GB 8GB Parrot Purple",
+    "sales": {"model":"C85", "memory":"8/256", "color":"Parrot Purple"},
+    "expected": {"model":"C85", "memory":"8GB/256GB", "color":"Parrot Purple"}
+  },
+  {
+    "name": "Titan Grey stock and Titan Gray sales must agree",
+    "stock": "realme P4 Lite 64GB 4GB Titan Grey",
+    "sales": {"model":"P4Lite", "memory":"4/64GB", "color":"Titan Gray"},
+    "expected": {"model":"P4 Lite", "memory":"4GB/64GB", "color":"Titan Gray"}
+  },
+  {
+    "name": "Titan Gray in 256GB variant",
+    "stock": "realme P4 Lite 256GB 4GB Titan Gray",
+    "sales": {"model":"P4 Lite", "memory":"4GB/256GB", "color":"Titan Grey"},
+    "expected": {"model":"P4 Lite", "memory":"4GB/256GB", "color":"Titan Gray"}
+  },
+  {
+    "name": "Network 4G is not RAM",
+    "stock": "realme C85 4G 256GB 8GB Kingfisher Blue",
+    "sales": {"model":"C85", "memory":"8 x 256", "color":"Kingfisher Blue"},
+    "expected": {"model":"C85", "memory":"8GB/256GB", "color":"Kingfisher Blue"}
+  },
+  {
+    "name": "RAM expansion is not physical RAM",
+    "stock": "realme Note 80 4GB+8GB 128GB Storm Black",
+    "sales": {"model":"Note 80", "memory":"4/128", "color":"Storm Black"},
+    "expected": {"model":"Note 80", "memory":"4GB/128GB", "color":"Storm Black"}
+  },
+  {
+    "name": "Compact physical RAM and storage",
+    "stock": "realme C100i 128GB4GB Dusk Gray",
+    "sales": {"model":"REALME C100 I", "memory":"4GB128GB", "color":"Dusk Grey"},
+    "expected": {"model":"C100i", "memory":"4GB/128GB", "color":"Dusk Gray"}
+  },
+  {
+    "name": "Preserve specification inside brackets",
+    "stock": "[realme] P4x (6/128GB) [Rally White]",
+    "sales": {"model":"realmeP4x", "memory":"RAM 6GB ROM 128GB", "color":"Rally White"},
+    "expected": {"model":"P4x", "memory":"6GB/128GB", "color":"Rally White"}
+  },
+  {
+    "name": "Plus spelling and memory without units",
+    "stock": "realme 16 Pro Plus 512GB 12GB Master Grey",
+    "sales": {"model":"16Pro+", "memory":"12+512", "color":"Master Gray"},
+    "expected": {"model":"16 Pro+", "memory":"12GB/512GB", "color":"Master Gray"}
+  },
+  {
+    "name": "Full width characters and zero width spacing",
+    "stock": "ｒｅａｌｍｅ Ｐ４ｘ １２８ＧＢ ６ＧＢ Rally White",
+    "sales": {"model":"P4x", "memory":"6/128GB", "color":"Rally\u200b White"},
+    "expected": {"model":"P4x", "memory":"6GB/128GB", "color":"Rally White"}
   }
 ]
