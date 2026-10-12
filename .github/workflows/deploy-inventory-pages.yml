@@ -1,17 +1,14 @@
-name: Publish inventory turnover page
+name: Publish operating dashboard
 
 on:
   push:
     branches: [main]
     paths:
-      - inventory-turnover.html
-      - inventory-turnover.js
-      - sku-core.js
-      - vendor/xlsx.full.min.js
       - index.html
       - dashboard.enc.json
       - sites-build.mjs
-      - .github/workflows/deploy-inventory-pages.yml
+      - tests/site-build-regression.mjs
+      - .github/workflows/**
   workflow_dispatch:
 
 permissions:
@@ -20,8 +17,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: inventory-turnover-pages
-  cancel-in-progress: true
+  group: github-pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -31,11 +28,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Check turnover rules
+      - name: Check publishing contract with synthetic fixtures
         run: |
-          node --check inventory-turnover.js
-          node tests/sku-regression.js
-      - name: Build website files
+          node --check sites-build.mjs
+          node tests/site-build-regression.mjs
+      - name: Build approved operating-dashboard website files
         run: node sites-build.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
